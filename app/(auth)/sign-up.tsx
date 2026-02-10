@@ -62,7 +62,7 @@ export default function SignUpScreen() {
                 <ScrollView contentContainerStyle={styles.scrollContent}>
                     <View style={styles.glassCard}>
                         <Text style={styles.title}>ÚNETE</Text>
-                        <Text style={styles.subtitle}>Crea tu cuenta en Autofix</Text>
+                        <Text style={styles.subtitle}>Crea tu cuenta en AutoSpot</Text>
 
                         <View style={styles.inputContainer}>
                             <TextInput
