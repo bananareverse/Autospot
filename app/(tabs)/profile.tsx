@@ -72,26 +72,27 @@ export default function ProfileScreen() {
                         source={{ uri: profile?.avatar }}
                         style={styles.avatar}
                     />
+                    {/* Badge de Cliente */}
                     <View style={styles.verifiedBadge}>
-                        <Ionicons name="person" size={12} color="white" />
+                        <Ionicons name="star" size={12} color="white" />
                     </View>
                 </View>
                 <Text style={styles.userName}>{profile?.fullName}</Text>
-                <Text style={styles.userRole}>{profile?.email}</Text>
+                <Text style={styles.userRole}>Cliente</Text>
             </View>
 
             <View style={styles.actionsContainer}>
                 <LinkCard
-                    icon="business-outline"
-                    title="Información del Taller"
-                    subtitle="Dirección, horarios y contacto"
-                    onPress={() => router.push('/shop-info')}
+                    icon="car-sport-outline"
+                    title="Mis Vehículos"
+                    subtitle="Administra tus autos registrados"
+                    onPress={() => router.push('/my-vehicles')}
                 />
                 <LinkCard
-                    icon="card-outline"
-                    title="Pagos y Facturación"
-                    subtitle="Métodos de pago y facturas"
-                    onPress={() => router.push('/payments')}
+                    icon="business-outline"
+                    title="Mi Información"
+                    subtitle="Dirección, horarios y contacto"
+                    onPress={() => router.push('/client-info')}
                 />
 
                 <TouchableOpacity
