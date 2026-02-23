@@ -1,56 +1,166 @@
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, RefreshControl } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
+import { useEffect, useState, useCallback } from 'react';
+import { getUserAppointments, Appointment } from '@/lib/appointments';
+import { useRouter } from 'expo-router';
 
-// Nuevo Tema Claro
 const THEME = {
-    background: '#FFFFFF', // Blanco
-    text: '#1F2937',       // Gris oscuro
-    textLight: '#6B7280',  // Gris medio para subtítulos
-    primary: '#2563EB',    // Azul vibrante
-    secondary: '#1E3A8A',  // Azul oscuro (headers)
-    border: '#E5E7EB',     // Gris claro
-    cardBg: '#F3F4F6',     // Gris muy muy claro para tarjetas
+    background: '#FFFFFF',
+    text: '#1F2937',
+    textLight: '#6B7280',
+    primary: '#2563EB',
+    secondary: '#1E3A8A',
+    border: '#E5E7EB',
+    cardBg: '#FFFFFF',
+    status: {
+        scheduled: '#2563EB',
+        confirmed: '#10B981',
+        completed: '#6B7280',
+        cancelled: '#EF4444',
+    }
 };
 
+type TabType = 'programadas' | 'realizadas' | 'canceladas';
+
 export default function AppointmentsScreen() {
+    const router = useRouter();
+    const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
+    const [appointments, setAppointments] = useState<Appointment[]>([]);
+    const [activeTab, setActiveTab] = useState<TabType>('programadas');
+
+    const loadData = useCallback(async () => {
+        try {
+            const data = await getUserAppointments();
+            setAppointments(data);
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setLoading(false);
+            setRefreshing(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        loadData();
+    }, [loadData]);
+
+    const onRefresh = () => {
+        setRefreshing(true);
+        loadData();
+    };
+
+    const filteredAppointments = appointments.filter(apt => {
+        if (activeTab === 'programadas') return apt.status === 'scheduled' || apt.status === 'confirmed';
+        if (activeTab === 'realizadas') return apt.status === 'completed';
+        if (activeTab === 'canceladas') return apt.status === 'cancelled';
+        return false;
+    });
+
+    const counts = {
+        programadas: appointments.filter(a => a.status === 'scheduled' || a.status === 'confirmed').length,
+        realizadas: appointments.filter(a => a.status === 'completed').length,
+        canceladas: appointments.filter(a => a.status === 'cancelled').length,
+    };
+
+    if (loading && !refreshing) {
+        return (
+            <View style={styles.center}>
+                <ActivityIndicator color={THEME.primary} size="large" />
+            </View>
+        );
+    }
+
     return (
         <View style={styles.container}>
             <StatusBar style="dark" />
 
-            {/* Header */}
             <View style={styles.header}>
                 <Text style={styles.title}>Citas</Text>
             </View>
 
-            {/* Tabs Superiores */}
             <View style={styles.tabsContainer}>
-                <TouchableOpacity style={[styles.tab, styles.activeTab]}>
-                    <Text style={[styles.tabText, styles.activeTabText]}>Programadas (0)</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.tab}>
-                    <Text style={styles.tabText}>Realizadas (0)</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.tab}>
-                    <Text style={styles.tabText}>Canceladas (0)</Text>
-                </TouchableOpacity>
+                <TabButton
+                    label={`Programadas (${counts.programadas})`}
+                    active={activeTab === 'programadas'}
+                    onPress={() => setActiveTab('programadas')}
+                />
+                <TabButton
+                    label={`Realizadas (${counts.realizadas})`}
+                    active={activeTab === 'realizadas'}
+                    onPress={() => setActiveTab('realizadas')}
+                />
+                <TabButton
+                    label={`Canceladas (${counts.canceladas})`}
+                    active={activeTab === 'canceladas'}
+                    onPress={() => setActiveTab('canceladas')}
+                />
             </View>
 
-            {/* Contenido */}
-            <View style={styles.content}>
-                <View style={styles.illustrationContainer}>
-                    <Ionicons name="calendar-outline" size={80} color={THEME.primary} style={{ opacity: 0.8 }} />
-                    <View style={styles.calendarDecoration} />
-                </View>
+            <ScrollView
+                contentContainerStyle={styles.scrollContent}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={THEME.primary} />}
+            >
+                {filteredAppointments.length === 0 ? (
+                    <View style={styles.emptyContainer}>
+                        <View style={styles.illustrationContainer}>
+                            <Ionicons name="calendar-outline" size={80} color={THEME.primary} style={{ opacity: 0.8 }} />
+                        </View>
+                        <Text style={styles.emptyTitle}>No hay citas en esta categoría</Text>
+                        <Text style={styles.emptySubtitle}>Agenda una cita y aparecerá en esta sección.</Text>
+                        <TouchableOpacity style={styles.ctaButton} onPress={() => router.push('/schedule-appointment')}>
+                            <Text style={styles.ctaButtonText}>Agendar Cita</Text>
+                        </TouchableOpacity>
+                    </View>
+                ) : (
+                    <View style={styles.list}>
+                        {filteredAppointments.map((apt) => (
+                            <View key={apt.id} style={styles.card}>
+                                <View style={styles.cardHeader}>
+                                    <View style={styles.vehicleInfo}>
+                                        <Text style={styles.carText}>{apt.vehicle?.make} {apt.vehicle?.model}</Text>
+                                        <Text style={styles.plateText}>{apt.vehicle?.license_plate}</Text>
+                                    </View>
+                                    <View style={[styles.statusBadge, { backgroundColor: THEME.status[apt.status] + '15' }]}>
+                                        <Text style={[styles.statusText, { color: THEME.status[apt.status] }]}>
+                                            {apt.status === 'scheduled' ? 'Programada' :
+                                                apt.status === 'confirmed' ? 'Confirmada' :
+                                                    apt.status === 'completed' ? 'Realizada' : 'Cancelada'}
+                                        </Text>
+                                    </View>
+                                </View>
 
-                <Text style={styles.emptyTitle}>No tienes citas programadas</Text>
-                <Text style={styles.emptySubtitle}>Agenda una cita y aparecerá en esta sección.</Text>
+                                <View style={styles.cardBody}>
+                                    <View style={styles.infoRow}>
+                                        <Ionicons name="construct-outline" size={18} color={THEME.textLight} />
+                                        <Text style={styles.infoText}>{apt.service?.name || 'Servicio General'}</Text>
+                                    </View>
+                                    <View style={styles.infoRow}>
+                                        <Ionicons name="time-outline" size={18} color={THEME.textLight} />
+                                        <Text style={styles.infoText}>
+                                            {new Date(apt.scheduled_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
+                                        </Text>
+                                    </View>
+                                </View>
+                            </View>
+                        ))}
 
-                <TouchableOpacity style={styles.ctaButton}>
-                    <Text style={styles.ctaButtonText}>Agendar Cita</Text>
-                </TouchableOpacity>
-            </View>
+                        <TouchableOpacity style={styles.fab} onPress={() => router.push('/schedule-appointment')}>
+                            <Ionicons name="add" size={30} color="white" />
+                        </TouchableOpacity>
+                    </View>
+                )}
+            </ScrollView>
         </View>
+    );
+}
+
+function TabButton({ label, active, onPress }: { label: string, active: boolean, onPress: () => void }) {
+    return (
+        <TouchableOpacity style={[styles.tab, active && styles.activeTab]} onPress={onPress}>
+            <Text style={[styles.tabText, active && styles.activeTabText]}>{label}</Text>
+        </TouchableOpacity>
     );
 }
 
@@ -60,6 +170,11 @@ const styles = StyleSheet.create({
         backgroundColor: THEME.background,
         paddingTop: 60,
     },
+    center: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
     header: {
         paddingHorizontal: 20,
         marginBottom: 20,
@@ -67,41 +182,44 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 34,
         fontWeight: '800',
-        color: THEME.secondary, // Azul oscuro para títulos
+        color: THEME.secondary,
     },
     tabsContainer: {
         flexDirection: 'row',
         paddingHorizontal: 20,
-        marginBottom: 40,
-        gap: 10,
+        marginBottom: 20,
+        gap: 8,
     },
     tab: {
         paddingVertical: 10,
-        paddingHorizontal: 16,
+        paddingHorizontal: 12,
         borderRadius: 20,
         borderWidth: 1,
         borderColor: THEME.border,
         backgroundColor: 'white',
     },
     activeTab: {
-        backgroundColor: '#EFF6FF', // Azul muy clarito
+        backgroundColor: '#EFF6FF',
         borderColor: THEME.primary,
     },
     tabText: {
         color: THEME.textLight,
-        fontSize: 14,
+        fontSize: 12,
         fontWeight: '600',
     },
     activeTabText: {
         color: THEME.primary,
         fontWeight: 'bold',
     },
-    content: {
+    scrollContent: {
+        flexGrow: 1,
+    },
+    emptyContainer: {
         flex: 1,
         alignItems: 'center',
         justifyContent: 'center',
         paddingHorizontal: 40,
-        marginTop: -50,
+        paddingBottom: 100,
     },
     illustrationContainer: {
         marginBottom: 30,
@@ -111,17 +229,6 @@ const styles = StyleSheet.create({
         height: 120,
         backgroundColor: '#EFF6FF',
         borderRadius: 60,
-    },
-    calendarDecoration: {
-        position: 'absolute',
-        width: 12,
-        height: 12,
-        borderRadius: 6,
-        backgroundColor: THEME.primary,
-        top: 25,
-        right: 35,
-        borderWidth: 2,
-        borderColor: 'white',
     },
     emptyTitle: {
         fontSize: 20,
@@ -135,22 +242,92 @@ const styles = StyleSheet.create({
         color: THEME.textLight,
         textAlign: 'center',
         marginBottom: 30,
-        lineHeight: 24,
     },
     ctaButton: {
         backgroundColor: THEME.primary,
         paddingVertical: 16,
         paddingHorizontal: 32,
         borderRadius: 12,
-        shadowColor: THEME.primary,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 8,
         elevation: 4,
     },
     ctaButtonText: {
         color: 'white',
         fontWeight: 'bold',
         fontSize: 16,
+    },
+    list: {
+        padding: 20,
+        gap: 16,
+    },
+    card: {
+        backgroundColor: 'white',
+        borderRadius: 16,
+        padding: 16,
+        borderWidth: 1,
+        borderColor: THEME.border,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 5,
+        elevation: 2,
+    },
+    cardHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        marginBottom: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F3F4F6',
+        paddingBottom: 12,
+    },
+    vehicleInfo: {
+        flex: 1,
+    },
+    carText: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: THEME.text,
+    },
+    plateText: {
+        fontSize: 14,
+        color: THEME.textLight,
+        textTransform: 'uppercase',
+    },
+    statusBadge: {
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 8,
+    },
+    statusText: {
+        fontSize: 12,
+        fontWeight: 'bold',
+    },
+    cardBody: {
+        gap: 8,
+    },
+    infoRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+    },
+    infoText: {
+        fontSize: 15,
+        color: THEME.text,
+    },
+    fab: {
+        position: 'absolute',
+        bottom: 20, // Relative to the list view or could be fixed screen
+        right: 0,
+        backgroundColor: THEME.primary,
+        width: 60,
+        height: 60,
+        borderRadius: 30,
+        justifyContent: 'center',
+        alignItems: 'center',
+        elevation: 5,
+        shadowColor: THEME.primary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
     }
 });
