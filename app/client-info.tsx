@@ -64,8 +64,7 @@ export default function ClientInfoScreen() {
       const updates = {
         phone,
         address,
-        // If the record doesn't exist, we might need to insert, but for now assuming update on existing from my-vehicles logic
-        updated_at: new Date(),
+        // Eliminamos updated_at ya que no existe en la tabla
       };
 
       const { error } = await supabase
@@ -75,6 +74,8 @@ export default function ClientInfoScreen() {
 
       if (error) throw error;
 
+      // Actualizamos el estado local para que se vea el cambio
+      setClient({ ...client, phone, address });
       Alert.alert('Éxito', 'Información actualizada');
     } catch (e: any) {
       Alert.alert('Error', e.message);
@@ -103,8 +104,14 @@ export default function ClientInfoScreen() {
             <View style={styles.iconCircle}>
               <Ionicons name="person" size={40} color={THEME.primary} />
             </View>
-            <Text style={styles.name}>{client?.first_name}</Text>
+            <Text style={styles.name}>{client?.first_name} {client?.last_name}</Text>
             <Text style={styles.email}>{client?.email}</Text>
+            {client?.phone ? (
+              <View style={styles.phoneBadge}>
+                <Ionicons name="call-outline" size={14} color={THEME.primary} />
+                <Text style={styles.phoneText}>{client.phone}</Text>
+              </View>
+            ) : null}
           </View>
 
           <View style={styles.formSection}>
@@ -121,7 +128,7 @@ export default function ClientInfoScreen() {
               />
             </View>
 
-            
+
 
             <TouchableOpacity style={styles.saveButton} onPress={handleSave} disabled={saving}>
               {saving ? <ActivityIndicator color="white" /> : <Text style={styles.saveButtonText}>Guardar Cambios</Text>}
@@ -217,5 +224,20 @@ const styles = StyleSheet.create({
     color: 'white',
     fontWeight: 'bold',
     fontSize: 16,
+  },
+  phoneBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    marginTop: 10,
+    gap: 6,
+  },
+  phoneText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: THEME.primary,
   }
 });

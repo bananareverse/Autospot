@@ -2,7 +2,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState, useCallback } from 'react';
-import { getUserAppointments, Appointment } from '@/lib/appointments';
+import { getUserAppointments, Appointment } from '../../lib/appointments';
 import { useRouter } from 'expo-router';
 
 const THEME = {
@@ -116,24 +116,29 @@ export default function AppointmentsScreen() {
                 ) : (
                     <View style={styles.list}>
                         {filteredAppointments.map((apt) => (
-                            <View key={apt.id} style={styles.card}>
+                            <TouchableOpacity
+                                key={apt.id}
+                                style={styles.card}
+                                onPress={() => router.push({
+                                    pathname: '/appointment-details',
+                                    params: { id: apt.id }
+                                })}
+                            >
                                 <View style={styles.cardHeader}>
                                     <View style={styles.vehicleInfo}>
                                         <Text style={styles.carText}>{apt.vehicle?.make} {apt.vehicle?.model}</Text>
                                         <Text style={styles.plateText}>{apt.vehicle?.license_plate}</Text>
                                     </View>
-                                    <View style={[styles.statusBadge, { backgroundColor: THEME.status[apt.status] + '15' }]}>
-                                        <Text style={[styles.statusText, { color: THEME.status[apt.status] }]}>
-                                            {apt.status === 'scheduled' ? 'Programada' :
-                                                apt.status === 'confirmed' ? 'Confirmada' :
-                                                    apt.status === 'completed' ? 'Realizada' : 'Cancelada'}
+                                    <View style={styles.priceContainer}>
+                                        <Text style={styles.priceText}>
+                                            ${apt.service?.estimated_price?.toLocaleString('es-MX', { minimumFractionDigits: 0 })}
                                         </Text>
                                     </View>
                                 </View>
 
                                 <View style={styles.cardBody}>
                                     <View style={styles.infoRow}>
-                                        <Ionicons name="construct-outline" size={18} color={THEME.textLight} />
+                                        <Ionicons name="construct-outline" size={18} color={THEME.primary} />
                                         <Text style={styles.infoText}>{apt.service?.name || 'Servicio General'}</Text>
                                     </View>
                                     <View style={styles.infoRow}>
@@ -142,8 +147,17 @@ export default function AppointmentsScreen() {
                                             {new Date(apt.scheduled_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
                                         </Text>
                                     </View>
+
+                                    {/* Timeline Visual (The Cool Part) */}
+                                    <View style={styles.timelineContainer}>
+                                        <TimelineDot label="Agendado" active={true} />
+                                        <View style={[styles.timelineLine, { backgroundColor: apt.status !== 'scheduled' ? THEME.primary : '#E5E7EB' }]} />
+                                        <TimelineDot label="Taller" active={apt.status !== 'scheduled' && apt.status !== 'confirmed'} />
+                                        <View style={[styles.timelineLine, { backgroundColor: apt.status === 'completed' ? THEME.primary : '#E5E7EB' }]} />
+                                        <TimelineDot label="Listo" active={apt.status === 'completed'} />
+                                    </View>
                                 </View>
-                            </View>
+                            </TouchableOpacity>
                         ))}
 
                         <TouchableOpacity style={styles.fab} onPress={() => router.push('/schedule-appointment')}>
@@ -161,6 +175,17 @@ function TabButton({ label, active, onPress }: { label: string, active: boolean,
         <TouchableOpacity style={[styles.tab, active && styles.activeTab]} onPress={onPress}>
             <Text style={[styles.tabText, active && styles.activeTabText]}>{label}</Text>
         </TouchableOpacity>
+    );
+}
+
+function TimelineDot({ label, active }: { label: string, active: boolean }) {
+    return (
+        <View style={styles.dotWrapper}>
+            <View style={[styles.dot, active && styles.activeDot]}>
+                {active && <View style={styles.dotInner} />}
+            </View>
+            <Text style={[styles.dotLabel, active && styles.activeDotLabel]}>{label}</Text>
+        </View>
     );
 }
 
@@ -293,6 +318,17 @@ const styles = StyleSheet.create({
         color: THEME.textLight,
         textTransform: 'uppercase',
     },
+    priceContainer: {
+        backgroundColor: '#F3F4F6',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 12,
+    },
+    priceText: {
+        fontSize: 15,
+        fontWeight: '800',
+        color: THEME.secondary,
+    },
     statusBadge: {
         paddingHorizontal: 10,
         paddingVertical: 4,
@@ -313,6 +349,53 @@ const styles = StyleSheet.create({
     infoText: {
         fontSize: 15,
         color: THEME.text,
+    },
+    timelineContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 20,
+        paddingHorizontal: 10,
+    },
+    timelineLine: {
+        flex: 1,
+        height: 2,
+        backgroundColor: '#E5E7EB',
+        marginTop: -16,
+    },
+    dotWrapper: {
+        alignItems: 'center',
+        width: 60,
+    },
+    dot: {
+        width: 14,
+        height: 14,
+        borderRadius: 7,
+        backgroundColor: '#E5E7EB',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 1,
+        marginBottom: 6,
+    },
+    activeDot: {
+        backgroundColor: THEME.primary,
+        width: 18,
+        height: 18,
+        borderRadius: 9,
+    },
+    dotInner: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+        backgroundColor: 'white',
+    },
+    dotLabel: {
+        fontSize: 10,
+        color: THEME.textLight,
+        fontWeight: '600',
+    },
+    activeDotLabel: {
+        color: THEME.primary,
+        fontWeight: 'bold',
     },
     fab: {
         position: 'absolute',

@@ -19,6 +19,7 @@ export type Appointment = {
     };
     service?: {
         name: string;
+        estimated_price: number;
     };
 };
 
@@ -41,7 +42,7 @@ export async function getUserAppointments() {
         .select(`
       *,
       vehicle:vehicles(make, model, license_plate),
-      service:service_catalog(name)
+      service:service_catalog(name, estimated_price)
     `)
         .eq('client_id', client.id)
         .order('scheduled_at', { ascending: true });

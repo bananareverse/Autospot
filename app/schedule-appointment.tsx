@@ -63,10 +63,47 @@ export default function ScheduleAppointmentScreen() {
         }
     }
 
+    // State for separate pickers on Android
+    const [pickerMode, setPickerMode] = useState<'date' | 'time'>('date');
+
     const onChangeDate = (event: any, selectedDate?: Date) => {
-        const currentDate = selectedDate || date;
-        setShowDatePicker(Platform.OS === 'ios');
-        setDate(currentDate);
+        if (Platform.OS === 'android') {
+            setShowDatePicker(false);
+            if (event.type === 'set' && selectedDate) {
+                const currentDate = selectedDate;
+                if (pickerMode === 'date') {
+                    // After picking date, show time picker
+                    setDate(currentDate);
+                    setPickerMode('time');
+                    // Delay showing the next picker to avoid conflicts
+                    setTimeout(() => setShowDatePicker(true), 100);
+                } else {
+                    // Finished picking both
+                    setDate(currentDate);
+                    setPickerMode('date'); // Reset for next time
+                }
+            } else {
+                setPickerMode('date'); // Reset on cancel
+            }
+        } else {
+            // iOS logic (standard)
+            setShowDatePicker(Platform.OS === 'ios');
+            if (selectedDate) setDate(selectedDate);
+        }
+    };
+
+    const showPicker = () => {
+        setPickerMode('date');
+        setShowDatePicker(true);
+    };
+
+    // Safe date string
+    const formatDate = (d: Date) => {
+        try {
+            return d.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+        } catch (e) {
+            return d.toDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
     };
 
     async function handleSchedule() {
@@ -151,6 +188,19 @@ export default function ScheduleAppointmentScreen() {
                                 ))}
                             </Picker>
                         </View>
+                        {selectedServiceId && services.find(s => s.id === selectedServiceId) && (
+                            <View style={styles.serviceDetailBox}>
+                                <Text style={styles.serviceDescription}>
+                                    {services.find(s => s.id === selectedServiceId)?.description}
+                                </Text>
+                                <View style={styles.priceBadge}>
+                                    <Text style={styles.priceLabel}>Precio Estimado:</Text>
+                                    <Text style={styles.priceValue}>
+                                        ${services.find(s => s.id === selectedServiceId)?.estimated_price?.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                                    </Text>
+                                </View>
+                            </View>
+                        )}
                     </View>
 
                     {/* Date & Time */}
@@ -158,24 +208,47 @@ export default function ScheduleAppointmentScreen() {
                         <Text style={styles.label}>Fecha y Hora</Text>
                         <TouchableOpacity
                             style={styles.dateSelector}
-                            onPress={() => setShowDatePicker(true)}
+                            onPress={showPicker}
                         >
                             <Ionicons name="calendar-outline" size={20} color={THEME.primary} />
                             <Text style={styles.dateSelectorText}>
-                                {date.toLocaleString([], { dateStyle: 'long', timeStyle: 'short' })}
+                                {formatDate(date)}
                             </Text>
                         </TouchableOpacity>
 
                         {showDatePicker && (
                             <DateTimePicker
                                 value={date}
-                                mode="datetime"
-                                display="default"
+                                mode={Platform.OS === 'ios' ? 'datetime' : pickerMode}
+                                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                                 onChange={onChangeDate}
                                 minimumDate={new Date()}
                             />
                         )}
                     </View>
+
+                    {/* Resumen de Costos (The Cool Part) */}
+                    {selectedServiceId && (
+                        <View style={styles.summaryCard}>
+                            <View style={styles.summaryRow}>
+                                <Text style={styles.summaryLabel}>Mano de obra y refacciones</Text>
+                                <Text style={styles.summaryValue}>
+                                    ${services.find(s => s.id === selectedServiceId)?.estimated_price?.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                                </Text>
+                            </View>
+                            <View style={styles.summaryRow}>
+                                <Text style={styles.summaryLabel}>Diagnóstico básico</Text>
+                                <Text style={[styles.summaryValue, { color: '#10B981' }]}>Incluido</Text>
+                            </View>
+                            <View style={styles.divider} />
+                            <View style={styles.totalRow}>
+                                <Text style={styles.totalLabel}>Total Estimado</Text>
+                                <Text style={styles.totalValue}>
+                                    ${services.find(s => s.id === selectedServiceId)?.estimated_price?.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                                </Text>
+                            </View>
+                        </View>
+                    )}
 
                     {/* Notes */}
                     <View style={styles.inputGroup}>
@@ -293,4 +366,78 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         fontSize: 18,
     },
+    serviceDetailBox: {
+        backgroundColor: '#F3F4F6',
+        padding: 16,
+        borderRadius: 12,
+        marginTop: 4,
+        borderLeftWidth: 4,
+        borderLeftColor: THEME.primary,
+    },
+    serviceDescription: {
+        fontSize: 14,
+        color: THEME.textLight,
+        lineHeight: 20,
+        marginBottom: 8,
+    },
+    priceBadge: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    priceLabel: {
+        fontSize: 13,
+        fontWeight: '700',
+        color: THEME.text,
+    },
+    priceValue: {
+        fontSize: 16,
+        fontWeight: '800',
+        color: THEME.primary,
+    },
+    summaryCard: {
+        backgroundColor: '#1E3A8A',
+        padding: 20,
+        borderRadius: 16,
+        marginTop: 20,
+        shadowColor: '#1E3A8A',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.3,
+        shadowRadius: 12,
+        elevation: 6,
+    },
+    summaryRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: 8,
+    },
+    summaryLabel: {
+        color: 'rgba(255,255,255,0.7)',
+        fontSize: 14,
+    },
+    summaryValue: {
+        color: '#FFFFFF',
+        fontSize: 14,
+        fontWeight: '600',
+    },
+    divider: {
+        height: 1,
+        backgroundColor: 'rgba(255,255,255,0.1)',
+        marginVertical: 12,
+    },
+    totalRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    totalLabel: {
+        color: '#FFFFFF',
+        fontSize: 16,
+        fontWeight: 'bold',
+    },
+    totalValue: {
+        color: '#FFFFFF',
+        fontSize: 22,
+        fontWeight: '900',
+    }
 });
