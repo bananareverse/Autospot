@@ -6,7 +6,6 @@ import { Image } from 'expo-image';
 import { StatusBar } from 'expo-status-bar';
 import { supabase } from '@/lib/supabase';
 
-// Use a cool car image for the background
 const BACKGROUND_IMAGE = 'https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?q=80&w=1000&auto=format&fit=crop';
 
 export default function LoginScreen() {
@@ -31,6 +30,7 @@ export default function LoginScreen() {
             setLoading(false);
         } else {
             // Redirection handled by simple effect or root layout
+
             setLoading(false);
         }
     }

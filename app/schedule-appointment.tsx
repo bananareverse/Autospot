@@ -249,7 +249,6 @@ export default function ScheduleAppointmentScreen() {
                             </View>
                         </View>
                     )}
-
                     {/* Notes */}
                     <View style={styles.inputGroup}>
                         <Text style={styles.label}>Notas adicionales / Fallas detectadas</Text>

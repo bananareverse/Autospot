@@ -2,7 +2,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState, useCallback } from 'react';
-import { getUserAppointments, Appointment } from '../../lib/appointments';
+import { getUserAppointments, Appointment } from '@/lib/appointments';
 import { useRouter } from 'expo-router';
 
 const THEME = {
@@ -129,10 +129,19 @@ export default function AppointmentsScreen() {
                                         <Text style={styles.carText}>{apt.vehicle?.make} {apt.vehicle?.model}</Text>
                                         <Text style={styles.plateText}>{apt.vehicle?.license_plate}</Text>
                                     </View>
-                                    <View style={styles.priceContainer}>
-                                        <Text style={styles.priceText}>
-                                            ${apt.service?.estimated_price?.toLocaleString('es-MX', { minimumFractionDigits: 0 })}
-                                        </Text>
+                                    <View style={styles.headerRight}>
+                                        <View style={[styles.statusBadge, { backgroundColor: THEME.status[apt.status] + '15' }]}>
+                                            <Text style={[styles.statusText, { color: THEME.status[apt.status] }]}>
+                                                {apt.status === 'scheduled' ? 'Programada' :
+                                                    apt.status === 'confirmed' ? 'Confirmada' :
+                                                        apt.status === 'completed' ? 'Realizada' : 'Cancelada'}
+                                            </Text>
+                                        </View>
+                                        <View style={styles.priceContainer}>
+                                            <Text style={styles.priceText}>
+                                                ${apt.service?.estimated_price?.toLocaleString('es-MX', { minimumFractionDigits: 0 })}
+                                            </Text>
+                                        </View>
                                     </View>
                                 </View>
 
@@ -317,6 +326,10 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: THEME.textLight,
         textTransform: 'uppercase',
+    },
+    headerRight: {
+        alignItems: 'flex-end',
+        gap: 6,
     },
     priceContainer: {
         backgroundColor: '#F3F4F6',
