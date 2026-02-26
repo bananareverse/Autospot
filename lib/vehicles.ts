@@ -75,7 +75,7 @@ export async function addVehicle(vehicle: Omit<Vehicle, 'id'>) {
 
     const { data, error } = await supabase
         .from('vehicles')
-        .insert([{ ...vehicle, client_id: client.id }])
+        .insert([{ ...vehicle, client_id: user.id }])
         .select()
         .single();
 
