@@ -1,29 +1,27 @@
--- Create the vehicles table (Schema actual en Supabase)
-CREATE TABLE IF NOT EXISTS public.vehicles (
-  id uuid NOT NULL DEFAULT uuid_generate_v4(),
-  client_id uuid NOT NULL,
-  make text NOT NULL,
-  model text NOT NULL,
-  year integer,
-  license_plate text UNIQUE,
+-- Create the vehicles table
+create table if not exists public.vehicles (
+  id uuid default gen_random_uuid() primary key,
+  client_id uuid references public.clients(id) on delete cascade not null,
+  make text not null,
+  model text not null,
+  year integer not null,
+  license_plate text,
   vin text,
   color text,
-  notes text,
-  created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
-  CONSTRAINT vehicles_pkey PRIMARY KEY (id),
-  CONSTRAINT vehicles_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id)
+  photo_url text,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
 -- Enable Row Level Security (RLS)
 alter table public.vehicles enable row level security;
 
--- Limpieza de políticas antiguas (que usaban user_id)
+-- Drop existing policies
 drop policy if exists "Users can view their own vehicles" on public.vehicles;
 drop policy if exists "Users can insert their own vehicles" on public.vehicles;
 drop policy if exists "Users can update their own vehicles" on public.vehicles;
 drop policy if exists "Users can delete their own vehicles" on public.vehicles;
 
--- Nuevas políticas basadas en el email del cliente (consistente con el resto de la app)
+-- Create policies based on client email (consistent with appointments)
 create policy "Users can view their own vehicles"
   on public.vehicles for select
   using (
