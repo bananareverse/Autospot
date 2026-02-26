@@ -1,18 +1,18 @@
 import { supabase } from "@/supabase/supabaseClient";
 import type { RootStackParamList } from "@/types/navigation";
 import {
-    NavigationProp,
-    useNavigation
+  NavigationProp,
+  useNavigation
 } from "@react-navigation/native";
 import * as Location from "expo-location";
 import React, { useEffect, useRef, useState } from "react";
 import {
-    Dimensions,
-    FlatList,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Dimensions,
+  FlatList,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import MapView, { Marker } from "react-native-maps";
 
@@ -73,7 +73,6 @@ export default function MapScreen() {
 
             if (!data || !userLocation) return;
 
-            const [selectedWorkshop, setSelectedWorkshop] = useState<Workshop | null>(null);
             const withDistance = data.map((w) => {
             const distance = getDistanceInKm(
                 userLocation.latitude,
