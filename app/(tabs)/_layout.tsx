@@ -4,10 +4,12 @@ import { Platform } from 'react-native';
 
 import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { useAuth } from '@/ctx/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
+  const { isWorkshop } = useAuth();
 
   return (
     <Tabs
@@ -57,6 +59,14 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => (
             <IconSymbol size={28} name="map.fill" color={color} />
           ),
+        }}
+      />
+      <Tabs.Screen
+        name="workshop-admin"
+        options={{
+          title: 'Mi Taller',
+          href: isWorkshop ? undefined : null,
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="wrench.and.screwdriver.fill" color={color} />,
         }}
       />
     </Tabs>

@@ -1,5 +1,6 @@
 import { supabase } from "@/supabase/supabaseClient";
 import type { RootStackParamList } from "@/types/navigation";
+import { useLocalSearchParams } from "expo-router";
 import {
   NavigationProp,
   useNavigation
@@ -28,6 +29,7 @@ interface Workshop {
 }
 
 export default function MapScreen() {
+  const { workshopId } = useLocalSearchParams<{ workshopId?: string | string[] }>();
   const [userLocation, setUserLocation] = useState<Location.LocationObjectCoords | null>(null);
   const [workshops, setWorkshops] = useState<Workshop[]>([]);
   const [selectedWorkshop, setSelectedWorkshop] = useState<Workshop | null>(null);
@@ -44,6 +46,16 @@ export default function MapScreen() {
       fetchNearbyWorkshops();
     }
   }, [userLocation]);
+
+  useEffect(() => {
+    const targetWorkshopId = Array.isArray(workshopId) ? workshopId[0] : workshopId;
+    if (!targetWorkshopId || workshops.length === 0) return;
+
+    const targetWorkshop = workshops.find((w) => w.id === targetWorkshopId);
+    if (!targetWorkshop) return;
+
+    handleSelectWorkshop(targetWorkshop);
+  }, [workshopId, workshops]);
 
   const getUserLocation = async () => {
     let { status } = await Location.requestForegroundPermissionsAsync();

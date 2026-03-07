@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
-import { FlatList, StyleSheet, View, Text, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
+import { FlatList, StyleSheet, View, Text, ActivityIndicator, TouchableOpacity, Alert, TextInput } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
+import * as Location from 'expo-location';
+import { useRouter } from 'expo-router';
 
 // Nuevo Tema Claro
 const THEME = {
@@ -17,25 +19,69 @@ const THEME = {
 };
 
 export default function HomeScreen() {
-  const [services, setServices] = useState<any[]>([]);
+  const router = useRouter();
+  const [workshops, setWorkshops] = useState<any[]>([]);
+  const [searchText, setSearchText] = useState('');
+  const [userLocation, setUserLocation] = useState<Location.LocationObjectCoords | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const filteredWorkshops = workshops.filter((workshop) =>
+    workshop.name?.toLowerCase().includes(searchText.trim().toLowerCase())
+  );
+
   useEffect(() => {
-    fetchServices();
+    fetchNearbyWorkshops();
   }, []);
 
-  async function fetchServices() {
+  function getDistanceInKm(lat1: number, lon1: number, lat2: number, lon2: number) {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * (Math.PI / 180);
+    const dLon = (lon2 - lon1) * (Math.PI / 180);
+
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * (Math.PI / 180)) *
+      Math.cos(lat2 * (Math.PI / 180)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  }
+
+  async function fetchNearbyWorkshops() {
     try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        setError('No se otorgaron permisos de ubicación.');
+        return;
+      }
+
+      const location = await Location.getCurrentPositionAsync({});
+      setUserLocation(location.coords);
+
       const { data, error } = await supabase
-        .from('service_catalog')
+        .from('workshops_with_coords')
         .select('*');
 
       if (error) {
         throw error;
       }
 
-      setServices(data);
+      const nearby = (data || [])
+        .map((workshop) => ({
+          ...workshop,
+          distance: getDistanceInKm(
+            location.coords.latitude,
+            location.coords.longitude,
+            workshop.latitude,
+            workshop.longitude
+          ),
+        }))
+        .sort((a, b) => a.distance - b.distance);
+
+      setWorkshops(nearby);
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -75,7 +121,20 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </View>
 
-      <Text style={styles.sectionTitle}>Catálogo de Servicios</Text>
+      <Text style={styles.sectionTitle}>Talleres Cercanos</Text>
+      <View style={styles.searchContainer}>
+        <Ionicons name="search" size={18} color={THEME.textLight} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Buscar taller"
+          value={searchText}
+          onChangeText={setSearchText}
+        />
+      </View>
+
+      {userLocation && !loading && !error && (
+        <Text style={styles.locationHint}>Ordenados por cercanía a tu ubicación actual</Text>
+      )}
 
       {loading && (
         <View style={styles.loadingContainer}>
@@ -86,31 +145,34 @@ export default function HomeScreen() {
       {error && (
         <View style={styles.errorContainer}>
           <Ionicons name="alert-circle-outline" size={40} color={THEME.danger} />
-          <Text style={styles.errorText}>No se pudieron cargar los servicios.</Text>
+          <Text style={styles.errorText}>No se pudieron cargar los talleres cercanos.</Text>
           <Text style={styles.errorSubtext}>{error}</Text>
         </View>
       )}
 
       {!loading && !error && (
         <FlatList
-          data={services}
+          data={filteredWorkshops}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
-            <View style={styles.card}>
+            <TouchableOpacity
+              style={styles.card}
+              onPress={() => router.push({ pathname: '/workshop-details', params: { id: item.id } })}
+              activeOpacity={0.9}
+            >
               <View style={styles.cardHeader}>
-                <Text style={styles.serviceName}>{item.name}</Text>
-                <Text style={styles.servicePrice}>${item.estimated_price}</Text>
+                <Text style={styles.itemName}>{item.name}</Text>
               </View>
-              <Text style={styles.serviceDesc}>{item.description}</Text>
-              <TouchableOpacity style={styles.cardButton}>
-                <Text style={styles.cardButtonText}>Ver Detalles</Text>
-                <Ionicons name="arrow-forward" size={16} color={THEME.primary} />
-              </TouchableOpacity>
-            </View>
+              <Text style={styles.itemAddress}>{item.address || 'Dirección no disponible'}</Text>
+              <View style={styles.metaRow}>
+                <Text style={styles.metaText}>{item.distance?.toFixed(2)} km</Text>
+                <Text style={styles.metaText}>⭐ {item.rating ?? 'N/A'} ({item.total_reviews ?? 0} reseñas)</Text>
+              </View>
+            </TouchableOpacity>
           )}
           contentContainerStyle={styles.list}
           ListEmptyComponent={
-            <Text style={styles.emptyText}>No hay servicios disponibles.</Text>
+            <Text style={styles.emptyText}>No hay talleres que coincidan con tu búsqueda.</Text>
           }
         />
       )}
@@ -155,6 +217,30 @@ const styles = StyleSheet.create({
     marginLeft: 24,
     marginBottom: 10,
   },
+  searchContainer: {
+    marginHorizontal: 24,
+    marginBottom: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderColor: THEME.border,
+    borderRadius: 12,
+    backgroundColor: THEME.cardBg,
+    paddingHorizontal: 12,
+  },
+  searchInput: {
+    flex: 1,
+    height: 44,
+    color: THEME.text,
+    fontSize: 15,
+  },
+  locationHint: {
+    color: THEME.textLight,
+    fontSize: 12,
+    marginHorizontal: 24,
+    marginBottom: 10,
+  },
   list: {
     paddingHorizontal: 20,
     paddingBottom: 40,
@@ -177,37 +263,32 @@ const styles = StyleSheet.create({
   },
   cardHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
     alignItems: 'flex-start',
     marginBottom: 8,
   },
-  serviceName: {
+  itemName: {
     fontSize: 18,
     fontWeight: 'bold',
     color: THEME.text,
     flex: 1,
     marginRight: 10,
   },
-  servicePrice: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: THEME.primary,
-  },
-  serviceDesc: {
+  itemAddress: {
     fontSize: 14,
     color: THEME.textLight,
-    marginBottom: 16,
+    marginBottom: 10,
     lineHeight: 20,
   },
-  cardButton: {
+  metaRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 4,
   },
-  cardButtonText: {
-    color: THEME.primary,
-    fontWeight: '700',
-    fontSize: 14,
+  metaText: {
+    color: THEME.text,
+    fontSize: 13,
+    fontWeight: '600',
   },
 
   // States

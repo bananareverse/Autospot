@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert, KeyboardAvoidingView, Platform } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
@@ -21,6 +21,7 @@ const THEME = {
 
 export default function ScheduleAppointmentScreen() {
     const router = useRouter();
+    const { workshopId } = useLocalSearchParams<{ workshopId?: string | string[] }>();
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
 
@@ -31,9 +32,14 @@ export default function ScheduleAppointmentScreen() {
     // Selection
     const [selectedVehicleId, setSelectedVehicleId] = useState('');
     const [selectedServiceId, setSelectedServiceId] = useState('');
+    const [serviceSearch, setServiceSearch] = useState('');
     const [date, setDate] = useState(new Date());
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [notes, setNotes] = useState('');
+
+    const filteredServices = services.filter((service) =>
+        service.name?.toLowerCase().includes(serviceSearch.trim().toLowerCase())
+    );
 
     useEffect(() => {
         loadInitialData();
@@ -41,19 +47,32 @@ export default function ScheduleAppointmentScreen() {
 
     async function loadInitialData() {
         try {
+            const targetWorkshopId = Array.isArray(workshopId) ? workshopId[0] : workshopId;
+
+            const servicesPromise = targetWorkshopId
+                ? supabase
+                    .from('workshop_services')
+                    .select('service:service_catalog(*)')
+                    .eq('workshop_id', targetWorkshopId)
+                    .eq('active', true)
+                : supabase.from('service_catalog').select('*').eq('active', true);
+
             const [vData, sData] = await Promise.all([
                 getUserVehicles(''), // userId handled inside service
-                supabase.from('service_catalog').select('*').eq('active', true)
+                servicesPromise
             ]);
 
             setVehicles(vData || []);
-            setServices(sData.data || []);
+            const normalizedServices = targetWorkshopId
+                ? (sData.data || []).map((row: any) => row.service).filter(Boolean)
+                : (sData.data || []);
+            setServices(normalizedServices);
 
             if (vData && vData.length > 0) {
                 setSelectedVehicleId(vData[0].id);
             }
-            if (sData.data && sData.data.length > 0) {
-                setSelectedServiceId(sData.data[0].id);
+            if (normalizedServices.length > 0) {
+                setSelectedServiceId(normalizedServices[0].id);
             }
         } catch (e) {
             console.log(e);
@@ -116,6 +135,7 @@ export default function ScheduleAppointmentScreen() {
         try {
             await scheduleAppointment({
                 vehicle_id: selectedVehicleId,
+                workshop_id: Array.isArray(workshopId) ? workshopId[0] : workshopId,
                 service_id: selectedServiceId || null,
                 scheduled_at: date,
                 notes: notes
@@ -176,6 +196,15 @@ export default function ScheduleAppointmentScreen() {
                     {/* Service Selection */}
                     <View style={styles.inputGroup}>
                         <Text style={styles.label}>Tipo de Servicio</Text>
+                        <View style={styles.searchInputContainer}>
+                            <Ionicons name="search" size={18} color={THEME.textLight} />
+                            <TextInput
+                                style={styles.searchInput}
+                                placeholder="Buscar servicio"
+                                value={serviceSearch}
+                                onChangeText={setServiceSearch}
+                            />
+                        </View>
                         <View style={styles.pickerContainer}>
                             <Picker
                                 selectedValue={selectedServiceId}
@@ -183,22 +212,19 @@ export default function ScheduleAppointmentScreen() {
                                 style={styles.picker}
                             >
                                 <Picker.Item label="Selecciona un servicio..." value="" />
-                                {services.map((s) => (
+                                {filteredServices.map((s) => (
                                     <Picker.Item key={s.id} label={s.name} value={s.id} />
                                 ))}
                             </Picker>
                         </View>
+                        {serviceSearch.trim().length > 0 && filteredServices.length === 0 && (
+                            <Text style={styles.searchHint}>No hay servicios que coincidan con tu búsqueda.</Text>
+                        )}
                         {selectedServiceId && services.find(s => s.id === selectedServiceId) && (
                             <View style={styles.serviceDetailBox}>
                                 <Text style={styles.serviceDescription}>
                                     {services.find(s => s.id === selectedServiceId)?.description}
                                 </Text>
-                                <View style={styles.priceBadge}>
-                                    <Text style={styles.priceLabel}>Precio Estimado:</Text>
-                                    <Text style={styles.priceValue}>
-                                        ${services.find(s => s.id === selectedServiceId)?.estimated_price?.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
-                                    </Text>
-                                </View>
                             </View>
                         )}
                     </View>
@@ -227,28 +253,6 @@ export default function ScheduleAppointmentScreen() {
                         )}
                     </View>
 
-                    {/* Resumen de Costos (The Cool Part) */}
-                    {selectedServiceId && (
-                        <View style={styles.summaryCard}>
-                            <View style={styles.summaryRow}>
-                                <Text style={styles.summaryLabel}>Mano de obra y refacciones</Text>
-                                <Text style={styles.summaryValue}>
-                                    ${services.find(s => s.id === selectedServiceId)?.estimated_price?.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
-                                </Text>
-                            </View>
-                            <View style={styles.summaryRow}>
-                                <Text style={styles.summaryLabel}>Diagnóstico básico</Text>
-                                <Text style={[styles.summaryValue, { color: '#10B981' }]}>Incluido</Text>
-                            </View>
-                            <View style={styles.divider} />
-                            <View style={styles.totalRow}>
-                                <Text style={styles.totalLabel}>Total Estimado</Text>
-                                <Text style={styles.totalValue}>
-                                    ${services.find(s => s.id === selectedServiceId)?.estimated_price?.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
-                                </Text>
-                            </View>
-                        </View>
-                    )}
                     {/* Notes */}
                     <View style={styles.inputGroup}>
                         <Text style={styles.label}>Notas adicionales / Fallas detectadas</Text>
@@ -312,6 +316,26 @@ const styles = StyleSheet.create({
         borderColor: THEME.border,
         borderRadius: 12,
         overflow: 'hidden',
+    },
+    searchInputContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        backgroundColor: THEME.cardBg,
+        borderWidth: 1,
+        borderColor: THEME.border,
+        borderRadius: 12,
+        paddingHorizontal: 12,
+    },
+    searchInput: {
+        flex: 1,
+        height: 46,
+        fontSize: 15,
+        color: THEME.text,
+    },
+    searchHint: {
+        color: THEME.textLight,
+        fontSize: 13,
     },
     picker: {
         height: 50,
@@ -377,66 +401,5 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: THEME.textLight,
         lineHeight: 20,
-        marginBottom: 8,
-    },
-    priceBadge: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-    },
-    priceLabel: {
-        fontSize: 13,
-        fontWeight: '700',
-        color: THEME.text,
-    },
-    priceValue: {
-        fontSize: 16,
-        fontWeight: '800',
-        color: THEME.primary,
-    },
-    summaryCard: {
-        backgroundColor: '#1E3A8A',
-        padding: 20,
-        borderRadius: 16,
-        marginTop: 20,
-        shadowColor: '#1E3A8A',
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.3,
-        shadowRadius: 12,
-        elevation: 6,
-    },
-    summaryRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginBottom: 8,
-    },
-    summaryLabel: {
-        color: 'rgba(255,255,255,0.7)',
-        fontSize: 14,
-    },
-    summaryValue: {
-        color: '#FFFFFF',
-        fontSize: 14,
-        fontWeight: '600',
-    },
-    divider: {
-        height: 1,
-        backgroundColor: 'rgba(255,255,255,0.1)',
-        marginVertical: 12,
-    },
-    totalRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-    },
-    totalLabel: {
-        color: '#FFFFFF',
-        fontSize: 16,
-        fontWeight: 'bold',
-    },
-    totalValue: {
-        color: '#FFFFFF',
-        fontSize: 22,
-        fontWeight: '900',
     }
 });

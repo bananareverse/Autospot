@@ -89,12 +89,6 @@ export default function AppointmentDetailsScreen() {
                             <Text style={styles.serviceName}>{appointment.service.name}</Text>
                             <Text style={styles.serviceSubtitle}>Diagnóstico incluido</Text>
                         </View>
-                        <Text style={styles.servicePrice}>${appointment.service.estimated_price?.toLocaleString()}</Text>
-                    </View>
-
-                    <View style={styles.totalBox}>
-                        <Text style={styles.totalLabel}>Total Estimado</Text>
-                        <Text style={styles.totalValue}>${appointment.service.estimated_price?.toLocaleString()}</Text>
                     </View>
 
                     <View style={styles.bottomPattern} />
@@ -235,28 +229,6 @@ const styles = StyleSheet.create({
         color: '#10B981',
         fontWeight: '600',
         marginTop: 2,
-    },
-    servicePrice: {
-        fontSize: 18,
-        fontWeight: '800',
-        color: THEME.text,
-    },
-    totalBox: {
-        backgroundColor: THEME.secondary,
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: 24,
-        paddingHorizontal: 30,
-    },
-    totalLabel: {
-        color: 'rgba(255,255,255,0.7)',
-        fontWeight: 'bold',
-    },
-    totalValue: {
-        color: 'white',
-        fontSize: 24,
-        fontWeight: '900',
     },
     bottomPattern: {
         height: 6,

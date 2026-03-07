@@ -8,6 +8,8 @@ type AuthContextType = {
     user: User | null;
     isLoading: boolean;
     isAdmin: boolean;
+    role: 'admin' | 'mechanic' | 'client' | null;
+    isWorkshop: boolean;
 };
 
 const AuthContext = createContext<AuthContextType>({
@@ -15,6 +17,8 @@ const AuthContext = createContext<AuthContextType>({
     user: null,
     isLoading: true,
     isAdmin: false,
+    role: null,
+    isWorkshop: false,
 });
 
 export function useAuth() {
@@ -25,6 +29,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [session, setSession] = useState<Session | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isAdmin, setIsAdmin] = useState(false);
+    const [role, setRole] = useState<'admin' | 'mechanic' | 'client' | null>(null);
 
     useEffect(() => {
         supabase.auth.getSession().then(({ data: { session } }) => {
@@ -45,6 +50,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async function checkUserRole(userId?: string) {
         if (!userId) {
             setIsAdmin(false);
+            setRole(null);
             return;
         }
         const { data } = await supabase
@@ -53,11 +59,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             .eq('id', userId)
             .single();
 
-        setIsAdmin(data?.role === 'admin' || data?.role === 'mechanic');
+        const nextRole = (data?.role as 'admin' | 'mechanic' | 'client' | undefined) || 'client';
+        setRole(nextRole);
+        setIsAdmin(nextRole === 'admin' || nextRole === 'mechanic');
     }
 
     return (
-        <AuthContext.Provider value={{ session, user: session?.user ?? null, isLoading, isAdmin }}>
+        <AuthContext.Provider value={{
+            session,
+            user: session?.user ?? null,
+            isLoading,
+            isAdmin,
+            role,
+            isWorkshop: role === 'mechanic' || role === 'admin',
+        }}>
             {children}
         </AuthContext.Provider>
     );

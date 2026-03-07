@@ -6,6 +6,7 @@ export type Appointment = {
     id: string;
     client_id: string;
     vehicle_id: string;
+    workshop_id?: string | null;
     service_id: string | null;
     scheduled_at: string;
     status: AppointmentStatus;
@@ -53,6 +54,7 @@ export async function getUserAppointments() {
 
 export async function scheduleAppointment(params: {
     vehicle_id: string;
+    workshop_id?: string | null;
     service_id: string | null;
     scheduled_at: Date;
     notes: string;
@@ -74,6 +76,7 @@ export async function scheduleAppointment(params: {
         .insert([{
             client_id: client.id,
             vehicle_id: params.vehicle_id,
+            workshop_id: params.workshop_id || null,
             service_id: params.service_id,
             scheduled_at: params.scheduled_at.toISOString(),
             notes: params.notes,
