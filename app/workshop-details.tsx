@@ -8,6 +8,11 @@ type Workshop = {
   id: string;
   name: string;
   address?: string;
+  phone?: string | null;
+  description?: string | null;
+  opening_hours?: string | null;
+  categories?: string[] | null;
+  payment_methods?: string[] | null;
   rating?: number;
   total_reviews?: number;
 };
@@ -62,14 +67,33 @@ export default function WorkshopDetailsScreen() {
       setLoading(true);
       setError(null);
 
-      const { data: workshopData, error: workshopError } = await supabase
-        .from('workshops_with_coords')
-        .select('id, name, address, rating, total_reviews')
+      const { data: workshopCore, error: workshopCoreError } = await supabase
+        .from('workshops')
+        .select('id, name, address, phone, description, opening_hours, categories, payment_methods')
         .eq('id', workshopId)
         .single();
 
-      if (workshopError) throw workshopError;
-      setWorkshop(workshopData);
+      if (workshopCoreError) throw workshopCoreError;
+
+      const { data: workshopStats, error: workshopStatsError } = await supabase
+        .from('workshops_with_coords')
+        .select('id, rating, total_reviews')
+        .eq('id', workshopId)
+        .single();
+
+      if (workshopStatsError) {
+        setWorkshop({
+          ...workshopCore,
+          rating: 0,
+          total_reviews: 0,
+        });
+      } else {
+        setWorkshop({
+          ...workshopCore,
+          rating: workshopStats.rating,
+          total_reviews: workshopStats.total_reviews,
+        });
+      }
 
       // Preferred source: mapping table between workshops and service catalog.
       const { data: mappedServices, error: mappedError } = await supabase
@@ -208,6 +232,27 @@ export default function WorkshopDetailsScreen() {
             <Text style={styles.workshopMeta}>
               ⭐ {workshop.rating ?? 'N/A'} ({workshop.total_reviews ?? 0} reseñas)
             </Text>
+            {!!workshop.phone && (
+              <Text style={styles.workshopExtra}>Teléfono: {workshop.phone}</Text>
+            )}
+            {!!workshop.opening_hours && (
+              <Text style={styles.workshopExtra}>Horario: {workshop.opening_hours}</Text>
+            )}
+            {!!workshop.description && (
+              <Text style={styles.workshopDescription}>{workshop.description}</Text>
+            )}
+            {!!workshop.categories?.length && (
+              <View style={styles.tagWrap}>
+                {workshop.categories.map((category) => (
+                  <View key={category} style={styles.tag}>
+                    <Text style={styles.tagText}>{category}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+            {!!workshop.payment_methods?.length && (
+              <Text style={styles.workshopExtra}>Pagos: {workshop.payment_methods.join(', ')}</Text>
+            )}
             <TouchableOpacity
               style={styles.mapButton}
               onPress={() => router.push({ pathname: '/(tabs)/MapScreen', params: { workshopId: workshop.id } })}
@@ -329,6 +374,35 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: THEME.text,
     fontWeight: '600',
+    marginBottom: 4,
+  },
+  workshopExtra: {
+    fontSize: 13,
+    color: THEME.textLight,
+    marginTop: 2,
+  },
+  workshopDescription: {
+    fontSize: 13,
+    color: THEME.text,
+    marginTop: 8,
+    lineHeight: 18,
+  },
+  tagWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 8,
+  },
+  tag: {
+    backgroundColor: '#DBEAFE',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  tagText: {
+    color: '#1E3A8A',
+    fontSize: 12,
+    fontWeight: '700',
   },
   mapButton: {
     marginTop: 12,

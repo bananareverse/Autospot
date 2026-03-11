@@ -7,8 +7,12 @@ create extension if not exists "uuid-ossp";
 create table if not exists public.workshops (
   id uuid default uuid_generate_v4() primary key,
   name text not null,
-  address text not null,
+  address text not null, 
   phone text,
+  description text,
+  opening_hours text,
+  categories text[] default '{}',
+  payment_methods text[] default '{}',
   latitude numeric(10, 7),
   longitude numeric(10, 7),
   status text default 'pending_review' check (status in ('pending_review', 'active', 'suspended', 'rejected')),
@@ -17,11 +21,45 @@ create table if not exists public.workshops (
 
 alter table public.workshops
   add column if not exists phone text,
+  add column if not exists description text,
+  add column if not exists opening_hours text,
+  add column if not exists categories text[] default '{}',
+  add column if not exists payment_methods text[] default '{}',
   add column if not exists latitude numeric(10, 7),
   add column if not exists longitude numeric(10, 7),
   add column if not exists status text default 'pending_review';
 
 create index if not exists idx_workshops_status on public.workshops(status);
+
+-- Automatic approval rule:
+-- A workshop becomes active only when profile completeness rules are met.
+create or replace function public.apply_workshop_auto_status()
+returns trigger as $$
+declare
+  profile_complete boolean;
+begin
+  profile_complete :=
+    coalesce(length(trim(new.name)) > 0, false)
+    and coalesce(length(trim(new.address)) > 0, false)
+    and coalesce(length(trim(new.phone)) > 0, false)
+    and coalesce(length(trim(new.opening_hours)) > 0, false)
+    and coalesce(array_length(new.categories, 1), 0) > 0
+    and coalesce(array_length(new.payment_methods, 1), 0) > 0;
+
+  if profile_complete then
+    new.status := 'active';
+  else
+    new.status := 'pending_review';
+  end if;
+
+  return new;
+end;
+$$ language plpgsql;
+
+drop trigger if exists trg_apply_workshop_auto_status on public.workshops;
+create trigger trg_apply_workshop_auto_status
+before insert or update on public.workshops
+for each row execute procedure public.apply_workshop_auto_status();
 
 create table if not exists public.workshop_staff (
   workshop_id uuid references public.workshops(id) on delete cascade not null,
@@ -41,6 +79,9 @@ drop policy if exists "Authenticated users can create workshops" on public.works
 drop policy if exists "Workshop staff can manage own workshop" on public.workshops;
 drop policy if exists "Workshop staff can read own links" on public.workshop_staff;
 drop policy if exists "Workshop owners can manage staff" on public.workshop_staff;
+drop policy if exists "Workshop owners can insert staff" on public.workshop_staff;
+drop policy if exists "Workshop owners can update staff" on public.workshop_staff;
+drop policy if exists "Workshop owners can delete staff" on public.workshop_staff;
 drop policy if exists "Users can create own staff link" on public.workshop_staff;
 
 create policy "Everyone can read active workshops"
@@ -76,8 +117,19 @@ create policy "Users can create own staff link"
   on public.workshop_staff for insert
   with check (user_id = auth.uid());
 
-create policy "Workshop owners can manage staff"
-  on public.workshop_staff for all
+create policy "Workshop owners can insert staff"
+  on public.workshop_staff for insert
+  with check (
+    exists (
+      select 1 from public.workshop_staff owner_row
+      where owner_row.workshop_id = workshop_staff.workshop_id
+        and owner_row.user_id = auth.uid()
+        and owner_row.role_in_workshop in ('owner', 'manager')
+    )
+  );
+
+create policy "Workshop owners can update staff"
+  on public.workshop_staff for update
   using (
     exists (
       select 1 from public.workshop_staff owner_row
@@ -87,6 +139,17 @@ create policy "Workshop owners can manage staff"
     )
   )
   with check (
+    exists (
+      select 1 from public.workshop_staff owner_row
+      where owner_row.workshop_id = workshop_staff.workshop_id
+        and owner_row.user_id = auth.uid()
+        and owner_row.role_in_workshop in ('owner', 'manager')
+    )
+  );
+
+create policy "Workshop owners can delete staff"
+  on public.workshop_staff for delete
+  using (
     exists (
       select 1 from public.workshop_staff owner_row
       where owner_row.workshop_id = workshop_staff.workshop_id
@@ -244,6 +307,11 @@ select
   w.id,
   w.name,
   w.address,
+  w.phone,
+  w.description,
+  w.opening_hours,
+  w.categories,
+  w.payment_methods,
   w.latitude,
   w.longitude,
   coalesce(avg(r.rating)::numeric(10,2), 0) as rating,
@@ -251,4 +319,4 @@ select
 from public.workshops w
 left join public.workshop_reviews r on r.workshop_id = w.id
 where w.status = 'active' or w.status = 'pending_review'
-group by w.id, w.name, w.address, w.latitude, w.longitude;
+group by w.id, w.name, w.address, w.phone, w.description, w.opening_hours, w.categories, w.payment_methods, w.latitude, w.longitude;

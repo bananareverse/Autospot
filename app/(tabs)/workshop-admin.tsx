@@ -172,6 +172,9 @@ export default function WorkshopAdminScreen() {
           <View style={styles.header}>
             <Text style={styles.title}>{ctx.workshopName}</Text>
             <Text style={styles.subtitle}>Gestiona servicios y revisa tus próximas citas.</Text>
+            <Text style={styles.ruleHint}>
+              Estado del taller: se activa automaticamente al completar telefono, horario, categorias y metodos de pago.
+            </Text>
 
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Agregar servicio al taller</Text>
@@ -242,6 +245,11 @@ const styles = StyleSheet.create({
   subtitle: {
     color: THEME.textSoft,
     fontSize: 14,
+  },
+  ruleHint: {
+    color: THEME.textSoft,
+    fontSize: 12,
+    lineHeight: 18,
   },
   card: {
     backgroundColor: THEME.card,
