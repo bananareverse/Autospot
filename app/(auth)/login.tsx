@@ -186,7 +186,7 @@ const styles = StyleSheet.create({
         color: '#a0a0a0',
     },
     linkText: {
-        color: '#ffb703',
+        color: '#8ecae6',
         fontWeight: 'bold',
     },
 });

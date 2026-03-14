@@ -13,8 +13,8 @@ const THEME = {
     background: '#FFFFFF',
     text: '#1F2937',
     textLight: '#6B7280',
-    primary: '#2563EB',
-    secondary: '#1E3A8A',
+    primary: '#219ebc',
+    secondary: '#023047',
     border: '#E5E7EB',
     cardBg: '#F9FAFB',
 };
@@ -25,62 +25,92 @@ export default function ScheduleAppointmentScreen() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
 
-    // Form Data
+    // State
     const [vehicles, setVehicles] = useState<any[]>([]);
     const [services, setServices] = useState<any[]>([]);
-
-    // Selection
+    const [workshops, setWorkshops] = useState<any[]>([]);
     const [selectedVehicleId, setSelectedVehicleId] = useState('');
     const [selectedServiceId, setSelectedServiceId] = useState('');
-    const [serviceSearch, setServiceSearch] = useState('');
+    const [selectedWorkshopId, setSelectedWorkshopId] = useState<string>(
+        Array.isArray(workshopId) ? workshopId[0] : (workshopId || '')
+    );
+    const [loadingServices, setLoadingServices] = useState(false);
     const [date, setDate] = useState(new Date());
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [notes, setNotes] = useState('');
 
-    const filteredServices = services.filter((service) =>
-        service.name?.toLowerCase().includes(serviceSearch.trim().toLowerCase())
-    );
+    const [serviceSearch, setServiceSearch] = useState('');
 
     useEffect(() => {
+        async function loadInitialData() {
+            try {
+                // 1. Cargar TODOS los Talleres (sin filtrar por status para asegurar visibilidad)
+                const { data: wData } = await supabase
+                    .from('workshops')
+                    .select('id, name');
+                setWorkshops(wData || []);
+
+                // Si hay talleres y no hay uno seleccionado, seleccionar el primero
+                if (wData && wData.length > 0 && !selectedWorkshopId) {
+                    setSelectedWorkshopId(wData[0].id);
+                }
+
+                // 2. Cargar Vehículos del usuario
+                const vData = await getUserVehicles('');
+                setVehicles(vData || []);
+                if (vData && vData.length > 0) {
+                    setSelectedVehicleId(vData[0].id);
+                }
+            } catch (e) {
+                console.error(e);
+            } finally {
+                setLoading(false);
+            }
+        }
         loadInitialData();
     }, []);
 
-    async function loadInitialData() {
-        try {
-            const targetWorkshopId = Array.isArray(workshopId) ? workshopId[0] : workshopId;
-
-            const servicesPromise = targetWorkshopId
-                ? supabase
-                    .from('workshop_services')
-                    .select('service:service_catalog(*)')
-                    .eq('workshop_id', targetWorkshopId)
-                    .eq('active', true)
-                : supabase.from('service_catalog').select('*').eq('active', true);
-
-            const [vData, sData] = await Promise.all([
-                getUserVehicles(''), // userId handled inside service
-                servicesPromise
-            ]);
-
-            setVehicles(vData || []);
-            const normalizedServices = targetWorkshopId
-                ? (sData.data || []).map((row: any) => row.service).filter(Boolean)
-                : (sData.data || []);
-            setServices(normalizedServices);
-
-            if (vData && vData.length > 0) {
-                setSelectedVehicleId(vData[0].id);
+    useEffect(() => {
+        async function loadFilteredServices() {
+            if (!selectedWorkshopId) {
+                setServices([]);
+                return;
             }
-            if (normalizedServices.length > 0) {
-                setSelectedServiceId(normalizedServices[0].id);
+            setLoadingServices(true);
+            try {
+                const { data, error } = await supabase.from('workshop_services')
+                    .select('custom_price, service:service_catalog(*)')
+                    .eq('workshop_id', selectedWorkshopId)
+                    .eq('active', true);
+
+                if (data) {
+                    const normalized = data
+                        .filter(item => item && item.service)
+                        .map(item => {
+                            const s = Array.isArray(item.service) ? item.service[0] : item.service;
+                            return {
+                                id: s?.id,
+                                name: s?.name,
+                                description: s?.description,
+                                price: item.custom_price || s?.estimated_price,
+                            };
+                        });
+                    setServices(normalized);
+                    if (normalized.length > 0) {
+                        setSelectedServiceId(normalized[0].id);
+                    }
+                }
+            } catch (e) {
+                console.error(e);
+            } finally {
+                setLoadingServices(false);
             }
-        } catch (e) {
-            console.log(e);
-            Alert.alert('Error', 'No se pudo cargar la información inicial');
-        } finally {
-            setLoading(false);
         }
-    }
+        loadFilteredServices();
+    }, [selectedWorkshopId]);
+
+
+
 
     // State for separate pickers on Android
     const [pickerMode, setPickerMode] = useState<'date' | 'time'>('date');
@@ -135,7 +165,7 @@ export default function ScheduleAppointmentScreen() {
         try {
             await scheduleAppointment({
                 vehicle_id: selectedVehicleId,
-                workshop_id: Array.isArray(workshopId) ? workshopId[0] : workshopId,
+                workshop_id: selectedWorkshopId,
                 service_id: selectedServiceId || null,
                 scheduled_at: date,
                 notes: notes
@@ -178,9 +208,13 @@ export default function ScheduleAppointmentScreen() {
                                     onValueChange={itemValue => setSelectedVehicleId(itemValue)}
                                     style={styles.picker}
                                 >
-                                    {vehicles.map((v) => (
-                                        <Picker.Item key={v.id} label={`${v.make} ${v.model} (${v.license_plate})`} value={v.id} />
-                                    ))}
+                                    {vehicles.length === 0 ? (
+                                        <Picker.Item label="Registra un vehículo primero" value="" />
+                                    ) : (
+                                        vehicles.map((v) => (
+                                            <Picker.Item key={v.id} label={`${v.make} ${v.model} (${v.license_plate})`} value={v.id} />
+                                        ))
+                                    )}
                                 </Picker>
                             ) : (
                                 <TouchableOpacity
@@ -193,40 +227,49 @@ export default function ScheduleAppointmentScreen() {
                         </View>
                     </View>
 
-                    {/* Service Selection */}
                     <View style={styles.inputGroup}>
-                        <Text style={styles.label}>Tipo de Servicio</Text>
-                        <View style={styles.searchInputContainer}>
-                            <Ionicons name="search" size={18} color={THEME.textLight} />
-                            <TextInput
-                                style={styles.searchInput}
-                                placeholder="Buscar servicio"
-                                value={serviceSearch}
-                                onChangeText={setServiceSearch}
-                            />
-                        </View>
+                        <Text style={styles.label}>Selecciona un Taller</Text>
                         <View style={styles.pickerContainer}>
-                            <Picker
-                                selectedValue={selectedServiceId}
-                                onValueChange={itemValue => setSelectedServiceId(itemValue)}
+                            <Picker selectedValue={selectedWorkshopId}
+                                onValueChange={itemValue => setSelectedWorkshopId(itemValue)}
                                 style={styles.picker}
                             >
-                                <Picker.Item label="Selecciona un servicio..." value="" />
-                                {filteredServices.map((s) => (
-                                    <Picker.Item key={s.id} label={s.name} value={s.id} />
-                                ))}
+                                {workshops.length === 0 ? (
+                                    <Picker.Item label="No se encontraron talleres" value="" />
+                                ) : (
+                                    workshops.map((w) => (
+                                        <Picker.Item key={w.id} label={w.name} value={w.id} />
+                                    ))
+                                )}
                             </Picker>
                         </View>
-                        {serviceSearch.trim().length > 0 && filteredServices.length === 0 && (
-                            <Text style={styles.searchHint}>No hay servicios que coincidan con tu búsqueda.</Text>
-                        )}
-                        {selectedServiceId && services.find(s => s.id === selectedServiceId) && (
-                            <View style={styles.serviceDetailBox}>
-                                <Text style={styles.serviceDescription}>
-                                    {services.find(s => s.id === selectedServiceId)?.description}
-                                </Text>
-                            </View>
-                        )}
+                    </View>
+
+                    <View style={styles.inputGroup}>
+                        <Text style={styles.label}>Servicios Disponibles en este Taller</Text>
+                        <View style={styles.pickerContainer}>
+                            {loadingServices ? (
+                                <View style={{ padding: 15, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                                    <ActivityIndicator size="small" color={THEME.primary} />
+                                    <Text style={{ color: THEME.textLight }}>Cargando servicios...</Text>
+                                </View>
+                            ) : (
+                                <Picker
+                                    selectedValue={selectedServiceId}
+                                    onValueChange={(val) => setSelectedServiceId(val)}
+                                    enabled={services.length > 0}
+                                    style={styles.picker}
+                                >
+                                    {services.length === 0 ? (
+                                        <Picker.Item label="Selecciona un taller primero..." value="" />
+                                    ) : (
+                                        services.map(s => (
+                                            <Picker.Item key={s.id} label={`${s.name} ($${s.price || 0})`} value={s.id} />
+                                        ))
+                                    )}
+                                </Picker>
+                            )}
+                        </View>
                     </View>
 
                     {/* Date & Time */}
@@ -395,7 +438,7 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         marginTop: 4,
         borderLeftWidth: 4,
-        borderLeftColor: THEME.primary,
+        borderLeftColor: '#219ebc',
     },
     serviceDescription: {
         fontSize: 14,

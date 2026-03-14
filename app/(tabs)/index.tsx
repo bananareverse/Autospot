@@ -11,8 +11,8 @@ const THEME = {
   background: '#FFFFFF', // Blanco
   text: '#1F2937',       // Gris oscuro
   textLight: '#6B7280',  // Gris medio
-  primary: '#2563EB',    // Azul vibrante
-  secondary: '#1E3A8A',  // Azul oscuro
+  primary: '#219ebc',    // Azul cian
+  secondary: '#023047',  // Azul marino profundo
   cardBg: '#F9FAFB',     // Gris muy muy claro
   border: '#E5E7EB',     // Gris claro para bordes
   danger: '#EF4444',     // Rojo
@@ -52,36 +52,52 @@ export default function HomeScreen() {
 
   async function fetchNearbyWorkshops() {
     try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        setError('No se otorgaron permisos de ubicación.');
-        return;
-      }
+      setLoading(true);
 
-      const location = await Location.getCurrentPositionAsync({});
-      setUserLocation(location.coords);
-
-      const { data, error } = await supabase
+      // Fetch workshops first (no dependencies)
+      let { data, error: wError } = await supabase
         .from('workshops_with_coords')
         .select('*');
 
-      if (error) {
-        throw error;
+      // Fallback: Si la vista no existe o está vacía, intentar tabla directa sin filtros
+      if (wError || !data || data.length === 0) {
+        const { data: directData, error: directError } = await supabase
+          .from('workshops')
+          .select('*');
+
+        if (!directError && directData) {
+          data = directData;
+        } else if (wError && !directData) {
+          throw wError;
+        }
       }
 
-      const nearby = (data || [])
-        .map((workshop) => ({
-          ...workshop,
-          distance: getDistanceInKm(
-            location.coords.latitude,
-            location.coords.longitude,
-            workshop.latitude,
-            workshop.longitude
-          ),
-        }))
-        .sort((a, b) => a.distance - b.distance);
+      let currentWorkshops = data || [];
 
-      setWorkshops(nearby);
+      // Try to get location, but don't block the UI if it fails/denies
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === 'granted') {
+          const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+          setUserLocation(location.coords);
+
+          currentWorkshops = currentWorkshops.map((w) => {
+            const distance = (w.latitude != null && w.longitude != null)
+              ? getDistanceInKm(
+                location.coords.latitude,
+                location.coords.longitude,
+                w.latitude,
+                w.longitude
+              )
+              : 9999;
+            return { ...w, distance };
+          }).sort((a, b) => (a.distance || 0) - (b.distance || 0));
+        }
+      } catch (locError) {
+        console.log("Location not available:", locError);
+      }
+
+      setWorkshops(currentWorkshops);
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -207,7 +223,7 @@ const styles = StyleSheet.create({
   },
   logoutButton: {
     padding: 10,
-    backgroundColor: '#FEF2F2',
+    backgroundColor: '#e0f2fe', // Celeste muy claro
     borderRadius: 12,
   },
   sectionTitle: {

@@ -34,7 +34,7 @@ const THEME = {
   bg: '#FFFFFF',
   text: '#1F2937',
   textLight: '#6B7280',
-  primary: '#2563EB',
+  primary: '#219ebc',
   cardBg: '#F9FAFB',
   border: '#E5E7EB',
   danger: '#EF4444',
@@ -74,7 +74,7 @@ export default function WorkshopDetailsScreen() {
       // Preferred source: mapping table between workshops and service catalog.
       const { data: mappedServices, error: mappedError } = await supabase
         .from('workshop_services')
-        .select('estimated_price, service:service_catalog(id, name, description)')
+        .select('custom_price, service:service_catalog(id, name, description, estimated_price)')
         .eq('workshop_id', workshopId)
         .eq('active', true);
 
@@ -82,7 +82,7 @@ export default function WorkshopDetailsScreen() {
         const normalized = mappedServices
           .map((row: any) => ({
             ...row.service,
-            estimated_price: row.estimated_price,
+            estimated_price: row.custom_price || row.service?.estimated_price,
           }))
           .filter(Boolean);
         setServices(normalized);
@@ -343,7 +343,7 @@ const styles = StyleSheet.create({
   },
   bookButton: {
     marginTop: 8,
-    backgroundColor: '#1E3A8A',
+    backgroundColor: '#023047',
     borderRadius: 10,
     paddingVertical: 10,
     paddingHorizontal: 12,

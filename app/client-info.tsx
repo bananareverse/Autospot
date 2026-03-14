@@ -9,8 +9,8 @@ const THEME = {
   background: '#FFFFFF',
   text: '#1F2937',
   textLight: '#6B7280',
-  primary: '#2563EB',
-  secondary: '#1E3A8A',
+  primary: '#219ebc',
+  secondary: '#023047',
   inputBg: '#F9FAFB',
   border: '#E5E7EB',
 };
@@ -166,7 +166,7 @@ const styles = StyleSheet.create({
   iconCircle: {
     width: 80,
     height: 80,
-    backgroundColor: '#EFF6FF',
+    backgroundColor: '#e0f2fe',
     borderRadius: 40,
     justifyContent: 'center',
     alignItems: 'center',
@@ -228,7 +228,7 @@ const styles = StyleSheet.create({
   phoneBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#EFF6FF',
+    backgroundColor: '#e0f2fe',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,

@@ -9,8 +9,8 @@ const THEME = {
     background: '#FFFFFF',
     text: '#1F2937',
     textLight: '#6B7280',
-    primary: '#2563EB',
-    secondary: '#1E3A8A',
+    primary: '#219ebc',
+    secondary: '#023047',
     border: '#E5E7EB',
     cardBg: '#FFFFFF',
     danger: '#EF4444',
@@ -32,7 +32,7 @@ export default function ProfileScreen() {
                 setProfile({
                     fullName: user.user_metadata?.full_name || 'Usuario',
                     email: user.email,
-                    avatar: user.user_metadata?.avatar_url || 'https://ui-avatars.com/api/?background=2563EB&color=fff&size=200'
+                    avatar: user.user_metadata?.avatar_url || 'https://ui-avatars.com/api/?background=219ebc&color=fff&size=200'
                 });
             }
         } catch (e) {
@@ -61,7 +61,7 @@ export default function ProfileScreen() {
 
             <View style={styles.header}>
                 <Text style={styles.title}>Perfil</Text>
-                <TouchableOpacity onPress={handleLogout}>
+                <TouchableOpacity onPress={() => router.push('/')}>
                     <Ionicons name="settings-outline" size={24} color={THEME.text} />
                 </TouchableOpacity>
             </View>
@@ -219,13 +219,13 @@ const styles = StyleSheet.create({
     },
     logoutButton: {
         marginTop: 20,
-        backgroundColor: '#FEF2F2',
+        backgroundColor: '#f0f9ff',
     },
     iconBox: {
         width: 40,
         height: 40,
         borderRadius: 12,
-        backgroundColor: '#EFF6FF',
+        backgroundColor: '#e0f2fe',
         justifyContent: 'center',
         alignItems: 'center',
         marginRight: 16,
@@ -284,7 +284,7 @@ const styles = StyleSheet.create({
     },
     searchButton: {
         flexDirection: 'row',
-        backgroundColor: '#EFF6FF',
+        backgroundColor: '#e0f2fe',
         paddingVertical: 10,
         paddingHorizontal: 20,
         borderRadius: 10,

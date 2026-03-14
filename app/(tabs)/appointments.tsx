@@ -9,12 +9,12 @@ const THEME = {
     background: '#FFFFFF',
     text: '#1F2937',
     textLight: '#6B7280',
-    primary: '#2563EB',
-    secondary: '#1E3A8A',
+    primary: '#219ebc',
+    secondary: '#023047',
     border: '#E5E7EB',
     cardBg: '#FFFFFF',
     status: {
-        scheduled: '#2563EB',
+        scheduled: '#219ebc',
         confirmed: '#10B981',
         completed: '#6B7280',
         cancelled: '#EF4444',
@@ -233,7 +233,7 @@ const styles = StyleSheet.create({
         backgroundColor: 'white',
     },
     activeTab: {
-        backgroundColor: '#EFF6FF',
+        backgroundColor: '#e0f2fe',
         borderColor: THEME.primary,
     },
     tabText: {
@@ -261,7 +261,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         width: 120,
         height: 120,
-        backgroundColor: '#EFF6FF',
+        backgroundColor: '#e0f2fe',
         borderRadius: 60,
     },
     emptyTitle: {

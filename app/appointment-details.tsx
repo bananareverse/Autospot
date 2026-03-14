@@ -6,8 +6,8 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 
 const THEME = {
-    primary: '#2563EB',
-    secondary: '#1E3A8A',
+    primary: '#219ebc',
+    secondary: '#023047',
     bg: '#F9FAFB',
     text: '#1F2937',
     textLight: '#6B7280',

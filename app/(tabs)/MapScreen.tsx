@@ -1,4 +1,4 @@
-import { supabase } from "@/supabase/supabaseClient";
+import { supabase } from "@/lib/supabase";
 import type { RootStackParamList } from "@/types/navigation";
 import { useLocalSearchParams } from "expo-router";
 import {
@@ -66,70 +66,72 @@ export default function MapScreen() {
   };
 
   const fetchNearbyWorkshops = async () => {
-        try {
-            const { data, error } = await supabase
-            .from("workshops_with_coords")
-            .select("*");
+    try {
+      const { data, error } = await supabase
+        .from("workshops_with_coords")
+        .select("*");
 
-            if (error) {
-            console.log("Supabase error:", error);
-            return;
-            }
+      if (error) {
+        console.log("Supabase error:", error);
+        return;
+      }
 
-            if (!data) {
-            console.log("No data returned");
-            return;
-            }
+      if (!data) {
+        console.log("No data returned");
+        return;
+      }
 
-            console.log("RAW DATA:", data);
+      console.log("RAW DATA:", data);
 
-            if (!data || !userLocation) return;
+      if (!data || !userLocation) return;
 
-            const withDistance = data.map((w) => {
-            const distance = getDistanceInKm(
-                userLocation.latitude,
-                userLocation.longitude,
-                w.latitude,
-                w.longitude
-            );
+      const withDistance = data.map((w) => {
+        const distance = (w.latitude != null && w.longitude != null)
+          ? getDistanceInKm(
+            userLocation.latitude,
+            userLocation.longitude,
+            w.latitude,
+            w.longitude
+          )
+          : 9999;
 
-            return {
-                ...w,
-                distance,
-            };
-            });
+        return {
+          ...w,
+          distance,
+        };
+      });
 
-            const sorted = withDistance.sort(
-            (a, b) => a.distance - b.distance
-            );
+      const sorted = withDistance.sort(
+        (a, b) => a.distance - b.distance
+      );
 
-            setWorkshops(sorted);
+      setWorkshops(sorted);
 
-        } catch (err) {
-            console.log("Fetch error:", err);
-        }
-    };
+    } catch (err) {
+      console.log("Fetch error:", err);
+    }
+  };
 
-    const getDistanceInKm = (
-        lat1: number,
-        lon1: number,
-        lat2: number,
-        lon2: number
-        ) => {
-        const R = 6371; // radio tierra km
-        const dLat = (lat2 - lat1) * (Math.PI / 180);
-        const dLon = (lon2 - lon1) * (Math.PI / 180);
+  const getDistanceInKm = (
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number
+  ) => {
+    const R = 6371; // radio tierra km
+    const dLat = (lat2 - lat1) * (Math.PI / 180);
+    const dLon = (lon2 - lon1) * (Math.PI / 180);
 
-        const a =
-            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-            Math.cos(lat1 * (Math.PI / 180)) *
-            Math.cos(lat2 * (Math.PI / 180)) *
-            Math.sin(dLon / 2) *
-            Math.sin(dLon / 2);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * (Math.PI / 180)) *
+      Math.cos(lat2 * (Math.PI / 180)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
 
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        return R * c;
-    };
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
 
   const handleSelectWorkshop = (workshop: Workshop) => {
     setSelectedWorkshop(workshop);
@@ -157,57 +159,57 @@ export default function MapScreen() {
           longitudeDelta: 0.05,
         }}
       >
-        {workshops.map((workshop) => (
-        <Marker
+        {workshops.filter(w => w.latitude != null && w.longitude != null).map((workshop) => (
+          <Marker
             key={workshop.id}
             coordinate={{
-            latitude: workshop.latitude,
-            longitude: workshop.longitude,
+              latitude: workshop.latitude,
+              longitude: workshop.longitude,
             }}
             title={workshop.name}
             pinColor={
-            selectedWorkshop?.id === workshop.id ? "blue" : "red"
+              selectedWorkshop?.id === workshop.id ? "#219ebc" : "#EF4444"
             }
             onPress={() => {
-            setSelectedWorkshop(workshop);
+              setSelectedWorkshop(workshop);
             }}
-        />
+          />
         ))}
       </MapView>
 
       <View style={styles.listContainer}>
         <FlatList<Workshop>
-            data={workshops}
-            keyExtractor={(item) => item.id}
-            horizontal
-            renderItem={({ item }) => (
-                <TouchableOpacity
-                style={[
-                    styles.card,
-                    selectedWorkshop?.id === item.id && styles.selectedCard,
-                ]}
-                onPress={() => {
-                    setSelectedWorkshop(item);
+          data={workshops}
+          keyExtractor={(item) => item.id}
+          horizontal
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={[
+                styles.card,
+                selectedWorkshop?.id === item.id && styles.selectedCard,
+              ]}
+              onPress={() => {
+                setSelectedWorkshop(item);
 
-                    mapRef.current?.animateToRegion({
-                    latitude: item.latitude,
-                    longitude: item.longitude,
-                    latitudeDelta: 0.02,
-                    longitudeDelta: 0.02,
-                    });
-                }}
-                >
-                <Text style={styles.name}>{item.name}</Text>
+                mapRef.current?.animateToRegion({
+                  latitude: item.latitude,
+                  longitude: item.longitude,
+                  latitudeDelta: 0.02,
+                  longitudeDelta: 0.02,
+                });
+              }}
+            >
+              <Text style={styles.name}>{item.name}</Text>
 
-                <Text style={styles.distance}>
-                    {item.distance.toFixed(2)} km
-                </Text>
+              <Text style={styles.distance}>
+                {item.distance.toFixed(2)} km
+              </Text>
 
-                <Text style={styles.rating}>
-                    ⭐ {item.rating} ({item.total_reviews} reseñas)
-                </Text>
-                </TouchableOpacity>
-            )}
+              <Text style={styles.rating}>
+                ⭐ {item.rating} ({item.total_reviews} reseñas)
+              </Text>
+            </TouchableOpacity>
+          )}
         />
       </View>
     </View>
@@ -232,7 +234,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   selectedCard: {
-    borderColor: "#007AFF",
+    borderColor: "#219ebc",
     borderWidth: 2,
   },
   name: {

@@ -11,8 +11,8 @@ const THEME = {
     background: '#FFFFFF',
     text: '#1F2937',
     textLight: '#6B7280',
-    primary: '#2563EB',
-    secondary: '#1E3A8A',
+    primary: '#219ebc',
+    secondary: '#023047',
     cardBg: '#F3F4F6',
 };
 
@@ -243,7 +243,7 @@ const styles = StyleSheet.create({
     carIconBox: {
         width: 50,
         height: 50,
-        backgroundColor: '#EFF6FF',
+        backgroundColor: '#e0f2fe',
         borderRadius: 12,
         justifyContent: 'center',
         alignItems: 'center',
