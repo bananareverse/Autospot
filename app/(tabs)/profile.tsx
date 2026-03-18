@@ -4,6 +4,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
+import * as ImagePicker from 'expo-image-picker';
+
 
 const THEME = {
     background: '#FFFFFF',
@@ -20,6 +22,53 @@ export default function ProfileScreen() {
     const router = useRouter();
     const [profile, setProfile] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+
+    const cambiarFotoPerfil = async () => {
+        try {
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes:ImagePicker.MediaTypeOptions.Images,
+                allowsEditing:true,
+                //Editar la imagen, de manera cuadro
+                aspect:[1,1],
+                quality:1,
+                base64:true, //Hacer la imagen a un tecto
+            });
+            if (result.canceled) 
+                return;
+            
+            const imagen = result.assets[0];
+            if (!imagen.base64) 
+                return;
+            
+            //Se hace la imagen para que Supabase la aceptee asi chido
+            const formData = new FormData();
+            formData.append('file', {
+                uri: imagen.uri, 
+                name:`avatar_${profile.email}.jpg`,
+                type:'image/jpeg',
+            } as any);
+
+            //Ahora es todo lo de subir la foto
+            Alert.alert("Subiendo...","Tu foto se esta guardando");
+            const {data,error} = await supabase.storage.from('Avatar')
+                .upload(`avatar_${profile.email}.jpg`,formData,{
+                    upsert:true, //Sirve para actualizar la foto si ya existe
+                });
+                if (error){
+                    Alert.alert("Error",error.message);
+                    return;
+                }
+                //Se actualiza el avatar en el usuario
+                const { data: publicUrlData } = supabase.storage
+                .from('Avatar')
+                .getPublicUrl(`avatar_${profile.email}.jpg`);
+
+                setProfile({ ...profile, avatar: publicUrlData.publicUrl });
+        } catch (error) {
+            console.log("Error subiendo foto:", error);
+            Alert.alert("Error", "No se pudo subir la foto");
+        }
+    }
 
     useEffect(() => {
         getProfile();
@@ -67,11 +116,14 @@ export default function ProfileScreen() {
             </View>
 
             <View style={styles.profileHeader}>
-                <View style={styles.avatarContainer}>
-                    <Image
-                        source={{ uri: profile?.avatar }}
-                        style={styles.avatar}
-                    />
+                    <View style={styles.avatarContainer}>
+                    {/* La foto es aquui */}
+                    <TouchableOpacity onPress={cambiarFotoPerfil}>
+                        <Image
+                            source={{ uri: profile?.avatar }}
+                            style={styles.avatar}
+                        />
+                    </TouchableOpacity>
                     {/* Badge de Cliente */}
                     <View style={styles.verifiedBadge}>
                         <Ionicons name="star" size={12} color="white" />
@@ -141,6 +193,7 @@ function LinkCard({ icon, title, subtitle, onPress }: { icon: any, title: string
         </TouchableOpacity>
     );
 }
+
 
 const styles = StyleSheet.create({
     container: {
