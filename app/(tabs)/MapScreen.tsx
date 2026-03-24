@@ -247,7 +247,7 @@ export default function MapScreen() {
               {/* VER PERFIL */}
               <TouchableOpacity
                 onPress={() =>
-                  navigation.navigate("WorkshopProfile", { id: item.id })
+                  navigation.navigate("workshop-details" as any, { id: item.id })
                 }
                 style={{
                   backgroundColor: "#219ebc",

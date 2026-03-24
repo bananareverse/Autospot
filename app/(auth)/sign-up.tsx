@@ -1,167 +1,172 @@
-
-import React, { useState } from 'react';
-import { StyleSheet, View, Text, TextInput, TouchableOpacity, Alert, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { 
+  StyleSheet, 
+  View, 
+  Text, 
+  TextInput, 
+  TouchableOpacity, 
+  Alert, 
+  ActivityIndicator, 
+  KeyboardAvoidingView, 
+  Platform, 
+  ScrollView,
+  Dimensions
+} from 'react-native';
 import { useRouter, Link } from 'expo-router';
 import { Image } from 'expo-image';
 import { StatusBar } from 'expo-status-bar';
 import { supabase } from '@/lib/supabase';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
+import MapView, { Marker } from 'react-native-maps';
 
+const { width, height } = Dimensions.get('window');
 const BACKGROUND_IMAGE = 'https://images.unsplash.com/photo-1493238792015-1a419ac69251?q=80&w=1000&auto=format&fit=crop';
+
+const THEME = {
+  primary: '#fb8500', // Restore Orange
+  secondary: '#000000',
+  accent: '#219ebc',
+  text: '#FFFFFF',
+  textMuted: '#9CA3AF',
+};
+
+const CATEGORIES = [
+  'Mecánica General', 'Eléctrico', 'Frenos', 'Suspensión', 
+  'Afinación', 'Hojalatería', 'Pintura', 'A/C'
+];
+
+const PAYMENTS = [
+  'Efectivo', 'Tarjeta', 'Transferencia', 'Mercado Pago'
+];
 
 export default function SignUpScreen() {
     const router = useRouter();
-    const [step, setStep] = useState<1 | 2>(1);
+    const [step, setStep] = useState(1);
+    const [loading, setLoading] = useState(false);
+    
+    // Auth Data
+    const [fullName, setFullName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [fullName, setFullName] = useState('');
     const [accountType, setAccountType] = useState<'client' | 'mechanic'>('client');
-    const [workshopName, setWorkshopName] = useState('');
-    const [workshopPhone, setWorkshopPhone] = useState('');
-    const [workshopAddress, setWorkshopAddress] = useState('');
-    const [workshopDescription, setWorkshopDescription] = useState('');
-    const [workshopHours, setWorkshopHours] = useState('');
-    const [workshopCategories, setWorkshopCategories] = useState('');
-    const [workshopPaymentMethods, setWorkshopPaymentMethods] = useState('');
-    const [loading, setLoading] = useState(false);
 
-    const emailError = email.length > 0 && !/^\S+@\S+\.\S+$/.test(email)
-        ? 'Ingresa un correo válido.'
-        : '';
-    const passwordError = password.length > 0 && !/^(?=.*[A-Z])(?=.*\d).{8,}$/.test(password)
-        ? 'Mínimo 8 caracteres, 1 mayúscula y 1 número.'
-        : '';
-    const fullNameError = fullName.length > 0 && fullName.trim().length < 3
-        ? 'Escribe tu nombre completo.'
-        : '';
-    const workshopPhoneError = workshopPhone.length > 0 && !/^[\d\s()+-]{8,}$/.test(workshopPhone)
-        ? 'Ingresa un teléfono válido.'
-        : '';
+    // Workshop Data
+    const [wData, setWData] = useState({
+        name: '',
+        phone: '',
+        address: '',
+        description: '',
+        hours: 'Lun-Vie 9:00-18:00',
+        categories: [] as string[],
+        paymentMethods: [] as string[],
+        latitude: 25.6866,
+        longitude: -100.3161,
+    });
 
-    function validateStepOne() {
-        if (!email || !password || !fullName) {
-            Alert.alert('Error', 'Por favor llena los campos del paso 1.');
-            return false;
+    const emailError = email.length > 0 && !/^\S+@\S+\.\S+$/.test(email) ? 'Correo inválido' : '';
+    const passwordError = password.length > 0 && password.length < 6 ? 'Mínimo 6 caracteres' : '';
+
+    const validateStep = () => {
+        if (step === 1) {
+            if (!fullName || !email || !password) return 'Completa todos los campos';
+            if (emailError || passwordError) return 'Corrige los errores';
         }
-        if (emailError || passwordError || fullNameError) {
-            Alert.alert('Error', 'Corrige los campos marcados para continuar.');
-            return false;
+        if (step === 2 && accountType === 'mechanic') {
+            if (!wData.name || !wData.phone) return 'Nombre y teléfono requeridos';
         }
-        return true;
-    }
-
-    function validateWorkshopDetails() {
-        if (!workshopName || !workshopAddress || !workshopPhone || !workshopHours) {
-            Alert.alert('Datos incompletos', 'Completa nombre, teléfono, dirección y horario del taller.');
-            return false;
+        if (step === 3 && accountType === 'mechanic') {
+            if (!wData.address) return 'La dirección es requerida';
         }
-        if (workshopPhoneError) {
-            Alert.alert('Teléfono inválido', workshopPhoneError);
-            return false;
-        }
-        return true;
-    }
+        return null;
+    };
 
-    function toList(value: string) {
-        return value
-            .split(',')
-            .map((item) => item.trim())
-            .filter(Boolean);
-    }
-
-    async function signUp() {
-        if (!validateStepOne()) return;
-        if (accountType === 'mechanic' && !validateWorkshopDetails()) {
+    const handleNext = () => {
+        const err = validateStep();
+        if (err) {
+            Alert.alert('Datos incompletos', err);
             return;
         }
 
-        setLoading(true);
-
-        const { data, error } = await supabase.auth.signUp({
-            email,
-            password,
-            options: {
-                data: {
-                    full_name: fullName,
-                    avatar_url: 'https://cdn-icons-png.flaticon.com/512/149/149071.png', // default avatar
-                    role: accountType,
-                    workshop_draft: accountType === 'mechanic'
-                        ? {
-                            name: workshopName,
-                            phone: workshopPhone,
-                            address: workshopAddress,
-                            description: workshopDescription || null,
-                            opening_hours: workshopHours,
-                            categories: toList(workshopCategories),
-                            payment_methods: toList(workshopPaymentMethods),
-                        }
-                        : null,
-                }
-            }
-        });
-
-        if (error) {
-            Alert.alert('Error', error.message);
-            setLoading(false);
-        } else {
-            try {
-                const userId = data.session?.user?.id;
-
-                if (userId) {
-                    await supabase
-                        .from('profiles')
-                        .update({ role: accountType })
-                        .eq('id', userId);
-
-                    if (accountType === 'mechanic') {
-                        const { data: workshop, error: workshopError } = await supabase
-                            .from('workshops')
-                            .insert([{
-                                name: workshopName,
-                                address: workshopAddress,
-                                phone: workshopPhone,
-                                description: workshopDescription || null,
-                                opening_hours: workshopHours,
-                                categories: toList(workshopCategories),
-                                payment_methods: toList(workshopPaymentMethods),
-                            }])
-                            .select('id')
-                            .single();
-
-                        if (workshopError) throw workshopError;
-
-                        const { error: staffError } = await supabase
-                            .from('workshop_staff')
-                            .insert([{
-                                workshop_id: workshop.id,
-                                user_id: userId,
-                                role_in_workshop: 'owner',
-                            }]);
-
-                        if (staffError) throw staffError;
-                    }
-                }
-            } catch (e: any) {
-                Alert.alert('Registro parcial', `La cuenta se creó, pero faltó completar la configuración del taller: ${e.message}`);
-            }
-
-            const successMessage = accountType === 'mechanic'
-                ? 'Cuenta de taller creada. La activacion es automatica cuando tu perfil del taller este completo. Si tu correo requiere verificacion, la configuracion se completa al iniciar sesion por primera vez.'
-                : 'Cuenta creada. Por favor inicia sesión.';
-
-            Alert.alert('Éxito', successMessage);
-            router.back(); // Go back to login
-            setLoading(false);
-        }
-    }
-
-    function handleNextStep() {
-        if (!validateStepOne()) return;
         if (accountType === 'client') {
             signUp();
-            return;
+        } else {
+            if (step < 4) setStep(step + 1);
+            else signUp();
         }
-        setStep(2);
+    };
+
+    async function signUp() {
+        setLoading(true);
+        try {
+            const { data, error } = await supabase.auth.signUp({
+                email,
+                password,
+                options: {
+                    data: {
+                        full_name: fullName,
+                        avatar_url: `https://ui-avatars.com/api/?name=${fullName.replace(' ', '+')}&background=random`,
+                        role: accountType,
+                    }
+                }
+            });
+
+            if (error) throw error;
+
+            if (data.user && accountType === 'mechanic') {
+                // 1. Create Workshop
+                const { data: workshop, error: wError } = await supabase
+                    .from('workshops')
+                    .insert([{
+                        name: wData.name,
+                        address: wData.address,
+                        phone: wData.phone,
+                        description: wData.description,
+                        opening_hours: wData.hours,
+                        categories: wData.categories,
+                        payment_methods: wData.paymentMethods,
+                        latitude: wData.latitude,
+                        longitude: wData.longitude,
+                        status: 'active'
+                    }])
+                    .select()
+                    .single();
+
+                if (wError || !workshop) throw wError || new Error('Error al crear taller');
+
+                // 2. Link Staff
+                await supabase
+                    .from('workshop_staff')
+                    .insert([{
+                        workshop_id: workshop.id,
+                        user_id: data.user.id,
+                        role_in_workshop: 'owner',
+                    }]);
+                
+                // 3. Update Profile role (Sync)
+                await supabase
+                    .from('profiles')
+                    .update({ role: 'mechanic' })
+                    .eq('id', data.user.id);
+            }
+
+            Alert.alert('🎉 ¡Cuenta creada!', 'Inicia sesión para comenzar.');
+            router.replace('/(auth)/login');
+        } catch (e: any) {
+            Alert.alert('Error', e.message);
+        } finally {
+            setLoading(false);
+        }
     }
+
+    const toggleSelection = (item: string, field: 'categories' | 'paymentMethods') => {
+        setWData(prev => ({
+            ...prev,
+            [field]: prev[field].includes(item) 
+                ? prev[field].filter(i => i !== item)
+                : [...prev[field], item]
+        }));
+    };
 
     return (
         <View style={styles.container}>
@@ -170,189 +175,232 @@ export default function SignUpScreen() {
                 source={BACKGROUND_IMAGE}
                 style={styles.backgroundImage}
                 contentFit="cover"
-                transition={1000}
             />
-            <View style={styles.overlay} />
+            <View
+                style={[styles.overlay, { backgroundColor: 'rgba(0,0,0,0.6)' }]}
+            />
 
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 style={styles.content}
             >
-                <ScrollView contentContainerStyle={styles.scrollContent}>
+                <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
                     <View style={styles.glassCard}>
-                        <Text style={styles.title}>ÚNETE</Text>
-                        <Text style={styles.subtitle}>Crea tu cuenta en AutoSpot</Text>
-                        <View style={styles.stepWrap}>
-                            <View style={[styles.stepDot, step === 1 && styles.stepDotActive]} />
-                            <View style={[styles.stepDot, step === 2 && styles.stepDotActive, accountType === 'client' && styles.stepDotMuted]} />
+                        {/* Header */}
+                        <View style={styles.header}>
+                            <Text style={styles.brandTitle}>AutoSpot</Text>
+                            <Text style={styles.stepTitle}>ÚNETE</Text>
+                            <Text style={styles.stepSubtitle}>
+                                {step === 1 ? 'DATOS DE ACCESO' : step === 2 ? 'PERFIL DEL TALLER' : step === 3 ? 'UBICACIÓN' : 'SERVICIOS'}
+                            </Text>
+                            <View style={styles.stepDots}>
+                                {[1, 2, 3, 4].map(s => (
+                                    (accountType === 'mechanic' || s === 1) && (
+                                        <View 
+                                            key={s} 
+                                            style={[styles.dot, step >= s && styles.dotActive, step === s && { width: 20 }]} 
+                                        />
+                                    )
+                                ))}
+                            </View>
                         </View>
 
+                        {/* Step Content */}
                         {step === 1 && (
-                            <>
-                                <Text style={styles.stepTitle}>Paso 1: Datos de acceso</Text>
-
-                                <View style={styles.inputContainer}>
+                            <View style={styles.form}>
+                                <Text style={styles.sectionLabel}>Datos de Usuario</Text>
+                                <View style={styles.inputWrap}>
+                                    <Ionicons name="person-outline" size={20} color={THEME.primary} />
                                     <TextInput
                                         style={styles.input}
                                         placeholder="Nombre Completo"
-                                        placeholderTextColor="#a0a0a0"
+                                        placeholderTextColor={THEME.textMuted}
                                         value={fullName}
                                         onChangeText={setFullName}
                                     />
                                 </View>
-                                {!!fullNameError && <Text style={styles.errorText}>{fullNameError}</Text>}
-
-                                <View style={styles.inputContainer}>
+                                <View style={styles.inputWrap}>
+                                    <Ionicons name="mail-outline" size={20} color={THEME.primary} />
                                     <TextInput
                                         style={styles.input}
                                         placeholder="Correo Electrónico"
-                                        placeholderTextColor="#a0a0a0"
+                                        placeholderTextColor={THEME.textMuted}
                                         value={email}
                                         onChangeText={setEmail}
                                         autoCapitalize="none"
                                         keyboardType="email-address"
                                     />
                                 </View>
-                                {!!emailError && <Text style={styles.errorText}>{emailError}</Text>}
-
-                                <View style={styles.inputContainer}>
+                                <View style={styles.inputWrap}>
+                                    <Ionicons name="lock-closed-outline" size={20} color={THEME.primary} />
                                     <TextInput
                                         style={styles.input}
                                         placeholder="Contraseña"
-                                        placeholderTextColor="#a0a0a0"
+                                        placeholderTextColor={THEME.textMuted}
                                         value={password}
                                         onChangeText={setPassword}
                                         secureTextEntry
                                     />
                                 </View>
-                                {!!passwordError && <Text style={styles.errorText}>{passwordError}</Text>}
 
-                                <Text style={styles.pickerLabel}>Tipo de cuenta</Text>
-                                <View style={styles.roleSelector}>
-                                    <TouchableOpacity
-                                        style={[styles.roleButton, accountType === 'client' && styles.roleButtonActive]}
-                                        onPress={() => {
-                                            setAccountType('client');
-                                            setStep(1);
-                                        }}
-                                    >
-                                        <Text style={[styles.roleButtonText, accountType === 'client' && styles.roleButtonTextActive]}>Cliente</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity
-                                        style={[styles.roleButton, accountType === 'mechanic' && styles.roleButtonActive]}
-                                        onPress={() => setAccountType('mechanic')}
-                                    >
-                                        <Text style={[styles.roleButtonText, accountType === 'mechanic' && styles.roleButtonTextActive]}>Taller</Text>
-                                    </TouchableOpacity>
+                                <Text style={[styles.sectionLabel, { marginTop: 15 }]}>¿Qué tipo de cuenta buscas?</Text>
+                                <View style={styles.roleGrid}>
+                                    {['client', 'mechanic'].map((type) => (
+                                        <TouchableOpacity
+                                            key={type}
+                                            style={[styles.roleBtn, accountType === type && styles.roleBtnActive]}
+                                            onPress={() => setAccountType(type as any)}
+                                        >
+                                            <Ionicons 
+                                                name={type === 'client' ? 'car-outline' : 'construct-outline'} 
+                                                size={24} 
+                                                color={accountType === type ? 'white' : THEME.primary} 
+                                            />
+                                            <Text style={[styles.roleBtnText, accountType === type && styles.roleBtnTextActive]}>
+                                                {type === 'client' ? 'Cliente' : 'Taller'}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    ))}
                                 </View>
-
-                                <TouchableOpacity style={styles.button} onPress={handleNextStep} disabled={loading}>
-                                    {loading ? (
-                                        <ActivityIndicator color="black" />
-                                    ) : (
-                                        <Text style={styles.buttonText}>{accountType === 'mechanic' ? 'CONTINUAR' : 'CREAR CUENTA'}</Text>
-                                    )}
-                                </TouchableOpacity>
-                            </>
+                            </View>
                         )}
 
-                        {step === 2 && accountType === 'mechanic' && (
-                            <>
-                                <Text style={styles.stepTitle}>Paso 2: Perfil del taller</Text>
-                                <Text style={styles.helperText}>
-                                    Activacion automatica: tu taller pasa a activo cuando completas telefono, horario, categorias y metodos de pago.
-                                </Text>
-
-                                <View style={styles.inputContainer}>
+                        {step === 2 && (
+                            <View style={styles.form}>
+                                <Text style={styles.sectionLabel}>Identidad del Taller</Text>
+                                <View style={styles.inputWrap}>
                                     <TextInput
                                         style={styles.input}
-                                        placeholder="Nombre comercial del taller"
-                                        placeholderTextColor="#a0a0a0"
-                                        value={workshopName}
-                                        onChangeText={setWorkshopName}
+                                        placeholder="Nombre Comercial"
+                                        placeholderTextColor={THEME.textMuted}
+                                        value={wData.name}
+                                        onChangeText={v => setWData({...wData, name: v})}
                                     />
                                 </View>
-
-                                <View style={styles.inputContainer}>
+                                <View style={styles.inputWrap}>
                                     <TextInput
                                         style={styles.input}
-                                        placeholder="Teléfono del taller"
-                                        placeholderTextColor="#a0a0a0"
-                                        value={workshopPhone}
-                                        onChangeText={setWorkshopPhone}
+                                        placeholder="Teléfono del Taller"
+                                        placeholderTextColor={THEME.textMuted}
+                                        value={wData.phone}
+                                        onChangeText={v => setWData({...wData, phone: v})}
                                         keyboardType="phone-pad"
                                     />
                                 </View>
-                                {!!workshopPhoneError && <Text style={styles.errorText}>{workshopPhoneError}</Text>}
-
-                                <View style={styles.inputContainer}>
+                                <View style={[styles.inputWrap, { height: 100, alignItems: 'flex-start' }]}>
                                     <TextInput
-                                        style={styles.input}
-                                        placeholder="Dirección"
-                                        placeholderTextColor="#a0a0a0"
-                                        value={workshopAddress}
-                                        onChangeText={setWorkshopAddress}
-                                    />
-                                </View>
-
-                                <View style={styles.inputContainer}>
-                                    <TextInput
-                                        style={styles.input}
-                                        placeholder="Horario (ej: Lun-Vie 9:00-18:00)"
-                                        placeholderTextColor="#a0a0a0"
-                                        value={workshopHours}
-                                        onChangeText={setWorkshopHours}
-                                    />
-                                </View>
-
-                                <View style={styles.inputContainer}>
-                                    <TextInput
-                                        style={styles.input}
-                                        placeholder="Categorías (separadas por coma)"
-                                        placeholderTextColor="#a0a0a0"
-                                        value={workshopCategories}
-                                        onChangeText={setWorkshopCategories}
-                                    />
-                                </View>
-
-                                <View style={styles.inputContainer}>
-                                    <TextInput
-                                        style={styles.input}
-                                        placeholder="Métodos de pago (coma)"
-                                        placeholderTextColor="#a0a0a0"
-                                        value={workshopPaymentMethods}
-                                        onChangeText={setWorkshopPaymentMethods}
-                                    />
-                                </View>
-
-                                <View style={styles.inputContainer}>
-                                    <TextInput
-                                        style={[styles.input, styles.multilineInput]}
-                                        placeholder="Descripción del taller"
-                                        placeholderTextColor="#a0a0a0"
-                                        value={workshopDescription}
-                                        onChangeText={setWorkshopDescription}
+                                        style={[styles.input, { height: '100%' }]}
+                                        placeholder="Breve descripción..."
+                                        placeholderTextColor={THEME.textMuted}
+                                        value={wData.description}
+                                        onChangeText={v => setWData({...wData, description: v})}
                                         multiline
                                     />
                                 </View>
-
-                                <View style={styles.actionsRow}>
-                                    <TouchableOpacity style={styles.secondaryButton} onPress={() => setStep(1)}>
-                                        <Text style={styles.secondaryButtonText}>VOLVER</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity style={styles.buttonSmall} onPress={signUp} disabled={loading}>
-                                        {loading ? (
-                                            <ActivityIndicator color="black" />
-                                        ) : (
-                                            <Text style={styles.buttonText}>CREAR TALLER</Text>
-                                        )}
-                                    </TouchableOpacity>
-                                </View>
-                            </>
+                            </View>
                         )}
 
+                        {step === 3 && (
+                            <View style={styles.form}>
+                                <Text style={styles.sectionLabel}>Ubicación en el Mapa</Text>
+                                <View style={styles.mapContainer}>
+                                    <MapView
+                                        style={styles.map}
+                                        initialRegion={{
+                                            latitude: wData.latitude,
+                                            longitude: wData.longitude,
+                                            latitudeDelta: 0.01,
+                                            longitudeDelta: 0.01,
+                                        }}
+                                        onPress={(e) => setWData({
+                                            ...wData, 
+                                            latitude: e.nativeEvent.coordinate.latitude,
+                                            longitude: e.nativeEvent.coordinate.longitude
+                                        })}
+                                    >
+                                        <Marker 
+                                            coordinate={{ latitude: wData.latitude, longitude: wData.longitude }}
+                                            draggable
+                                        />
+                                    </MapView>
+                                </View>
+                                <View style={styles.inputWrap}>
+                                    <TextInput
+                                        style={styles.input}
+                                        placeholder="Dirección completa"
+                                        placeholderTextColor={THEME.textMuted}
+                                        value={wData.address}
+                                        onChangeText={v => setWData({...wData, address: v})}
+                                    />
+                                </View>
+                            </View>
+                        )}
+
+                        {step === 4 && (
+                            <ScrollView style={{ maxHeight: height * 0.4 }}>
+                                <Text style={styles.sectionLabel}>Especialidades</Text>
+                                <View style={styles.chipGrid}>
+                                    {CATEGORIES.map(cat => (
+                                        <TouchableOpacity
+                                            key={cat}
+                                            style={[styles.chip, wData.categories.includes(cat) && styles.chipActive]}
+                                            onPress={() => toggleSelection(cat, 'categories')}
+                                        >
+                                            <Text style={[styles.chipText, wData.categories.includes(cat) && styles.chipTextActive]}>{cat}</Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+
+                                <Text style={[styles.sectionLabel, { marginTop: 20 }]}>Métodos de Pago</Text>
+                                <View style={styles.chipGrid}>
+                                    {PAYMENTS.map(pm => (
+                                        <TouchableOpacity
+                                            key={pm}
+                                            style={[styles.chip, wData.paymentMethods.includes(pm) && styles.chipActive]}
+                                            onPress={() => toggleSelection(pm, 'paymentMethods')}
+                                        >
+                                            <Text style={[styles.chipText, wData.paymentMethods.includes(pm) && styles.chipTextActive]}>{pm}</Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+                            </ScrollView>
+                        )}
+
+                        {/* Controls */}
                         <View style={styles.footer}>
-                            <Text style={styles.footerText}>¿Ya tienes cuenta? </Text>
+                            {step > 1 && (
+                                <TouchableOpacity 
+                                    style={styles.backBtn} 
+                                    onPress={() => setStep(step - 1)}
+                                >
+                                    <Text style={styles.backBtnText}>VOLVER</Text>
+                                </TouchableOpacity>
+                            )}
+                            <TouchableOpacity 
+                                style={styles.nextBtn} 
+                                onPress={handleNext}
+                                disabled={loading}
+                            >
+                                <LinearGradient
+                                    colors={[THEME.primary, '#1e8fb5']}
+                                    style={styles.gradientBtn}
+                                >
+                                    {loading ? (
+                                        <ActivityIndicator color="white" />
+                                    ) : (
+                                        <>
+                                            <Text style={styles.nextBtnText}>
+                                                {step === 4 || accountType === 'client' ? 'REGISTRARME' : 'SIGUIENTE'}
+                                            </Text>
+                                            <Ionicons name="arrow-forward" size={18} color="white" />
+                                        </>
+                                    )}
+                                </LinearGradient>
+                            </TouchableOpacity>
+                        </View>
+
+                        <View style={styles.loginLink}>
+                            <Text style={styles.loginText}>¿Ya tienes cuenta? </Text>
                             <Link href="/(auth)/login" asChild>
                                 <TouchableOpacity>
                                     <Text style={styles.linkText}>Inicia Sesión</Text>
@@ -373,11 +421,9 @@ const styles = StyleSheet.create({
     },
     backgroundImage: {
         ...StyleSheet.absoluteFillObject,
-        opacity: 0.6,
     },
     overlay: {
         ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'rgba(0,0,0,0.6)',
     },
     content: {
         flex: 1,
@@ -385,172 +431,188 @@ const styles = StyleSheet.create({
     scrollContent: {
         flexGrow: 1,
         justifyContent: 'center',
-        padding: 24,
+        padding: 20,
     },
     glassCard: {
-        backgroundColor: 'rgba(20, 20, 30, 0.75)',
-        borderRadius: 24,
-        padding: 32,
+        backgroundColor: 'rgba(255, 255, 255, 0.08)',
+        borderRadius: 30,
+        padding: 25,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.1)',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.5,
-        shadowRadius: 20,
-        elevation: 20,
+        borderColor: 'rgba(255, 255, 255, 0.15)',
+        backdropFilter: 'blur(20px)', // Solo funciona en versiones recientes de iOS/web, pero la opacidad ayuda
     },
-    title: {
-        fontSize: 36,
-        fontWeight: '900',
+    header: {
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+    brandTitle: {
         color: 'white',
-        textAlign: 'center',
-        marginBottom: 4,
-        letterSpacing: 2,
-        fontStyle: 'italic',
-    },
-    subtitle: {
-        fontSize: 16,
-        color: '#fb8500',
-        textAlign: 'center',
-        marginBottom: 14,
-        letterSpacing: 1,
-    },
-    stepWrap: {
-        flexDirection: 'row',
-        justifyContent: 'center',
-        gap: 8,
-        marginBottom: 16,
-    },
-    stepDot: {
-        width: 10,
-        height: 10,
-        borderRadius: 5,
-        backgroundColor: 'rgba(255,255,255,0.35)',
-    },
-    stepDotActive: {
-        backgroundColor: '#fb8500',
-    },
-    stepDotMuted: {
-        opacity: 0.45,
+        fontSize: 14,
+        fontWeight: '700',
+        letterSpacing: 4,
+        textTransform: 'uppercase',
+        opacity: 0.6,
     },
     stepTitle: {
-        color: '#ffffff',
+        color: 'white',
+        fontSize: 32,
+        fontWeight: '900',
+        marginTop: 5,
+        fontStyle: 'italic',
+        textAlign: 'center',
+    },
+    stepSubtitle: {
+        color: THEME.primary,
+        fontSize: 14,
         fontWeight: '700',
-        marginBottom: 12,
+        marginTop: 2,
+        letterSpacing: 1,
         textAlign: 'center',
     },
-    helperText: {
-        color: '#d1d5db',
-        fontSize: 12,
-        textAlign: 'center',
-        marginBottom: 12,
-        lineHeight: 18,
+    stepDots: {
+        flexDirection: 'row',
+        gap: 6,
+        marginTop: 15,
     },
-    inputContainer: {
-        marginBottom: 16,
+    dot: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+        backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    },
+    dotActive: {
+        backgroundColor: THEME.primary,
+    },
+    form: {
+        gap: 15,
+    },
+    sectionLabel: {
+        color: 'white',
+        fontSize: 14,
+        fontWeight: '600',
+        opacity: 0.8,
+    },
+    inputWrap: {
+        flexDirection: 'row',
+        alignItems: 'center',
         backgroundColor: 'rgba(255, 255, 255, 0.05)',
-        borderRadius: 12,
+        borderRadius: 15,
+        paddingHorizontal: 15,
+        height: 55,
         borderWidth: 1,
         borderColor: 'rgba(255, 255, 255, 0.1)',
     },
     input: {
-        padding: 16,
+        flex: 1,
         color: 'white',
+        marginLeft: 10,
         fontSize: 16,
     },
-    multilineInput: {
-        minHeight: 80,
-        textAlignVertical: 'top',
-    },
-    errorText: {
-        color: '#FCA5A5',
-        fontSize: 12,
-        marginTop: -10,
-        marginBottom: 10,
-    },
-    pickerLabel: {
-        color: '#a0a0a0',
-        marginBottom: 8,
-        marginTop: 2,
-    },
-    roleSelector: {
+    roleGrid: {
         flexDirection: 'row',
-        gap: 10,
-        marginBottom: 14,
+        gap: 15,
     },
-    roleButton: {
+    roleBtn: {
         flex: 1,
+        height: 80,
+        borderRadius: 18,
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.25)',
-        borderRadius: 10,
-        paddingVertical: 10,
-        alignItems: 'center',
-    },
-    roleButtonActive: {
-        backgroundColor: 'rgba(251,133,0,0.25)',
-        borderColor: '#fb8500',
-    },
-    roleButtonText: {
-        color: '#d1d5db',
-        fontWeight: '700',
-    },
-    roleButtonTextActive: {
-        color: '#ffffff',
-    },
-    button: {
-        backgroundColor: '#fb8500',
-        padding: 18,
-        borderRadius: 12,
-        alignItems: 'center',
-        marginTop: 16,
-        shadowColor: '#fb8500',
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.8,
-        shadowRadius: 20,
-        elevation: 10,
-    },
-    buttonSmall: {
-        flex: 1,
-        backgroundColor: '#fb8500',
-        padding: 14,
-        borderRadius: 12,
-        alignItems: 'center',
-    },
-    actionsRow: {
-        flexDirection: 'row',
-        gap: 10,
-        marginTop: 6,
-    },
-    secondaryButton: {
-        flex: 1,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.3)',
-        borderRadius: 12,
-        alignItems: 'center',
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
         justifyContent: 'center',
-        padding: 14,
+        alignItems: 'center',
+        gap: 8,
     },
-    secondaryButtonText: {
-        color: '#E5E7EB',
+    roleBtnActive: {
+        backgroundColor: THEME.primary,
+        borderColor: THEME.primary,
+    },
+    roleBtnText: {
+        color: THEME.textMuted,
+        fontSize: 14,
         fontWeight: '700',
-        letterSpacing: 1,
     },
-    buttonText: {
+    roleBtnTextActive: {
         color: 'white',
-        fontSize: 16,
-        fontWeight: 'bold',
-        letterSpacing: 1,
+    },
+    mapContainer: {
+        height: 200,
+        borderRadius: 20,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.2)',
+    },
+    map: {
+        flex: 1,
+    },
+    chipGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 10,
+        marginTop: 10,
+    },
+    chip: {
+        paddingVertical: 10,
+        paddingHorizontal: 15,
+        borderRadius: 12,
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+    },
+    chipActive: {
+        backgroundColor: THEME.primary,
+        borderColor: THEME.primary,
+    },
+    chipText: {
+        color: THEME.textMuted,
+        fontSize: 13,
+    },
+    chipTextActive: {
+        color: 'white',
+        fontWeight: '700',
     },
     footer: {
         flexDirection: 'row',
-        justifyContent: 'center',
-        marginTop: 24,
+        gap: 12,
+        marginTop: 25,
     },
-    footerText: {
-        color: '#a0a0a0',
+    backBtn: {
+        paddingHorizontal: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    backBtnText: {
+        color: THEME.textMuted,
+        fontWeight: '700',
+    },
+    nextBtn: {
+        flex: 1,
+        height: 55,
+        borderRadius: 15,
+        overflow: 'hidden',
+    },
+    gradientBtn: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 10,
+    },
+    nextBtnText: {
+        color: 'white',
+        fontSize: 16,
+        fontWeight: '800',
+    },
+    loginLink: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        marginTop: 20,
+    },
+    loginText: {
+        color: THEME.textMuted,
     },
     linkText: {
-        color: '#219ebc',
-        fontWeight: 'bold',
+        color: THEME.primary,
+        fontWeight: '800',
     },
 });

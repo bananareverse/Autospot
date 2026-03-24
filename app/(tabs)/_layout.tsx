@@ -35,6 +35,7 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Inicio',
+          href: isWorkshop ? null : undefined, // Hide for workshops
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
         }}
       />
@@ -45,20 +46,22 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="calendar" color={color} />,
         }}
       />
+    
+      <Tabs.Screen
+        name="MapScreen"
+        options={{
+          title: "Mapa",
+          href: isWorkshop ? null : undefined, // Hide for workshops
+          tabBarIcon: ({ color }) => (
+            <IconSymbol size={28} name="map.fill" color={color} />
+          ),
+        }}
+      />
       <Tabs.Screen
         name="profile"
         options={{
           title: 'Perfil',
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="person.crop.circle" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="MapScreen"
-        options={{
-          title: "Mapa",
-          tabBarIcon: ({ color }) => (
-            <IconSymbol size={28} name="map.fill" color={color} />
-          ),
         }}
       />
       <Tabs.Screen

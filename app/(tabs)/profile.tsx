@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
+import { useAuth } from '@/ctx/AuthContext';
 import * as ImagePicker from 'expo-image-picker';
 
 
@@ -20,8 +21,11 @@ const THEME = {
 
 export default function ProfileScreen() {
     const router = useRouter();
+    const { isWorkshop } = useAuth();
     const [profile, setProfile] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+    const [workshopServices, setWorkshopServices] = useState<any[]>([]);
+    const [workshopData, setWorkshopData] = useState<any>(null);
 
     const cambiarFotoPerfil = async () => {
         try {
@@ -83,6 +87,26 @@ export default function ProfileScreen() {
                     email: user.email,
                     avatar: user.user_metadata?.avatar_url || 'https://ui-avatars.com/api/?background=219ebc&color=fff&size=200'
                 });
+
+                if (isWorkshop) {
+                    // Cargar datos del taller si es workshop
+                    const { data: workshop } = await supabase
+                        .from('workshops')
+                        .select('*, workshop_staff!inner(*)')
+                        .eq('workshop_staff.user_id', user.id)
+                        .single();
+                    
+                    if (workshop) {
+                         setWorkshopData(workshop);
+                         // Cargar servicios
+                         const { data: services } = await supabase
+                             .from('workshop_services')
+                             .select('custom_price, service:service_catalog(name)')
+                             .eq('workshop_id', workshop.id)
+                             .limit(3);
+                         setWorkshopServices(services || []);
+                    }
+                }
             }
         } catch (e) {
             console.log('Error loading profile', e);
@@ -114,37 +138,37 @@ export default function ProfileScreen() {
                     <Ionicons name="settings-outline" size={24} color={THEME.text} />
                 </TouchableOpacity>
             </View>
-
             <View style={styles.profileHeader}>
-                    <View style={styles.avatarContainer}>
-                    {/* La foto es aquui */}
+                <View style={styles.avatarContainer}>
                     <TouchableOpacity onPress={cambiarFotoPerfil}>
                         <Image
                             source={{ uri: profile?.avatar }}
                             style={styles.avatar}
                         />
                     </TouchableOpacity>
-                    {/* Badge de Cliente */}
                     <View style={styles.verifiedBadge}>
-                        <Ionicons name="star" size={12} color="white" />
+                        <Ionicons name={isWorkshop ? "shield-checkmark" : "star"} size={12} color="white" />
                     </View>
                 </View>
-                <Text style={styles.userName}>{profile?.fullName}</Text>
-                <Text style={styles.userRole}>Cliente</Text>
+                <Text style={styles.userName}>{isWorkshop ? (workshopData?.name || profile?.fullName) : profile?.fullName}</Text>
+                <Text style={styles.userRole}>{isWorkshop ? 'Dueño de Taller' : 'Cliente'}</Text>
             </View>
 
             <View style={styles.actionsContainer}>
+                {!isWorkshop && (
+                    <LinkCard
+                        icon="car-sport-outline"
+                        title="Mis Vehículos"
+                        subtitle="Administra tus autos registrados"
+                        onPress={() => router.push('/my-vehicles')}
+                    />
+                )}
+                
                 <LinkCard
-                    icon="car-sport-outline"
-                    title="Mis Vehículos"
-                    subtitle="Administra tus autos registrados"
-                    onPress={() => router.push('/my-vehicles')}
-                />
-                <LinkCard
-                    icon="business-outline"
-                    title="Mi Información"
-                    subtitle="Dirección, horarios y contacto"
-                    onPress={() => router.push('/client-info')}
+                    icon={isWorkshop ? "construct-outline" : "business-outline"}
+                    title={isWorkshop ? "Administrar Taller" : "Mi Información"}
+                    subtitle={isWorkshop ? "Gestionar servicios y citas" : "Dirección, horarios y contacto"}
+                    onPress={() => router.push(isWorkshop ? '/workshop-admin' : '/client-info')}
                 />
 
                 <TouchableOpacity
@@ -161,19 +185,46 @@ export default function ProfileScreen() {
                 </TouchableOpacity>
             </View>
 
-            <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Guardados</Text>
-
-                <View style={styles.emptyCard}>
-                    <Text style={styles.emptyCardTitle}>No has guardado nada aún</Text>
-                    <Text style={styles.emptyCardText}>Las refacciones o servicios que guardes aparecerán aquí.</Text>
-
-                    <TouchableOpacity style={styles.searchButton}>
-                        <Ionicons name="search" size={18} color={THEME.primary} style={{ marginRight: 8 }} />
-                        <Text style={styles.searchButtonText}>Buscar inventario</Text>
-                    </TouchableOpacity>
+            {isWorkshop ? (
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Servicios del Taller</Text>
+                    
+                    <View style={styles.servicesListCard}>
+                        {workshopServices.length === 0 ? (
+                            <Text style={styles.emptyServicesText}>Aún no has agregado servicios.</Text>
+                        ) : (
+                            workshopServices.map((s, idx) => (
+                                <View key={idx} style={styles.serviceRow}>
+                                    <Text style={styles.serviceNameText}>{s.service?.name}</Text>
+                                    <Text style={styles.servicePriceText}>${s.custom_price || 0}</Text>
+                                </View>
+                            ))
+                        )}
+                        
+                        <TouchableOpacity 
+                            style={styles.manageButton}
+                            onPress={() => router.push('/workshop-admin')}
+                        >
+                            <Text style={styles.manageButtonText}>Gestionar Todos los Servicios</Text>
+                            <Ionicons name="arrow-forward" size={16} color={THEME.primary} />
+                        </TouchableOpacity>
+                    </View>
                 </View>
-            </View>
+            ) : (
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Guardados</Text>
+
+                    <View style={styles.emptyCard}>
+                        <Text style={styles.emptyCardTitle}>No has guardado nada aún</Text>
+                        <Text style={styles.emptyCardText}>Las refacciones o servicios que guardes aparecerán aquí.</Text>
+
+                        <TouchableOpacity style={styles.searchButton}>
+                            <Ionicons name="search" size={18} color={THEME.primary} style={{ marginRight: 8 }} />
+                            <Text style={styles.searchButtonText}>Buscar inventario</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            )}
 
         </ScrollView>
     );
@@ -347,5 +398,46 @@ const styles = StyleSheet.create({
         color: THEME.primary,
         fontWeight: '700',
         fontSize: 14,
+    },
+    // Workshop specific styles
+    servicesListCard: {
+        backgroundColor: 'white',
+        borderRadius: 16,
+        padding: 20,
+        borderWidth: 1,
+        borderColor: THEME.border,
+    },
+    emptyServicesText: {
+        color: THEME.textLight,
+        textAlign: 'center',
+        marginVertical: 10,
+    },
+    serviceRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        paddingVertical: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F3F4F6',
+    },
+    serviceNameText: {
+        fontSize: 15,
+        color: THEME.text,
+        fontWeight: '500',
+    },
+    servicePriceText: {
+        fontSize: 15,
+        color: THEME.primary,
+        fontWeight: 'bold',
+    },
+    manageButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginTop: 15,
+        gap: 8,
+    },
+    manageButtonText: {
+        color: THEME.primary,
+        fontWeight: 'bold',
     }
 });

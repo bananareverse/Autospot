@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
+import { useAuth } from '@/ctx/AuthContext';
 
 // Nuevo Tema Claro
 const THEME = {
@@ -20,6 +21,7 @@ const THEME = {
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { isWorkshop } = useAuth();
   const [workshops, setWorkshops] = useState<any[]>([]);
   const [searchText, setSearchText] = useState('');
   const [userLocation, setUserLocation] = useState<Location.LocationObjectCoords | null>(null);
@@ -31,8 +33,12 @@ export default function HomeScreen() {
   );
 
   useEffect(() => {
+    if (isWorkshop) {
+      router.replace('/workshop-admin');
+      return;
+    }
     fetchNearbyWorkshops();
-  }, []);
+  }, [isWorkshop]);
 
   function getDistanceInKm(lat1: number, lon1: number, lat2: number, lon2: number) {
     const R = 6371;
@@ -132,9 +138,6 @@ export default function HomeScreen() {
           <Text style={styles.subTitle}>Bienvenido a</Text>
           <Text style={styles.title}>AutoSpot</Text>
         </View>
-        <TouchableOpacity onPress={handleSignOut} style={styles.logoutButton}>
-          <Ionicons name="log-out-outline" size={24} color={THEME.danger} />
-        </TouchableOpacity>
       </View>
 
       <Text style={styles.sectionTitle}>Talleres Cercanos</Text>
