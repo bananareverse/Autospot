@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, Alert, ActivityIndicator, TextInput } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
@@ -6,7 +6,6 @@ import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/ctx/AuthContext';
 import * as ImagePicker from 'expo-image-picker';
-
 
 const THEME = {
     background: '#FFFFFF',
@@ -24,55 +23,76 @@ export default function ProfileScreen() {
     const { isWorkshop } = useAuth();
     const [profile, setProfile] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+    const [uploadingPhoto, setUploadingPhoto] = useState(false);
     const [workshopServices, setWorkshopServices] = useState<any[]>([]);
     const [workshopData, setWorkshopData] = useState<any>(null);
+    const [description, setDescription] = useState('');
+    const [availability, setAvailability] = useState('');
+    const [editingDesc, setEditingDesc] = useState(false);
+    const [editingAvail, setEditingAvail] = useState(false);
+    const [savingDesc, setSavingDesc] = useState(false);
+    const [savingAvail, setSavingAvail] = useState(false);
 
     const cambiarFotoPerfil = async () => {
         try {
+            const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (status !== 'granted') {
+                Alert.alert('Permiso requerido', 'Se necesita acceso a la galería para cambiar la foto.');
+                return;
+            }
+
             const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes:ImagePicker.MediaTypeOptions.Images,
-                allowsEditing:true,
-                //Editar la imagen, de manera cuadro
-                aspect:[1,1],
-                quality:1,
-                base64:true, //Hacer la imagen a un tecto
+                mediaTypes: ['images'],
+                allowsEditing: true,
+                aspect: [1, 1],
+                quality: 0.7,
+                base64: true,
             });
-            if (result.canceled) 
-                return;
-            
+            if (result.canceled || !result.assets?.[0]) return;
+
             const imagen = result.assets[0];
-            if (!imagen.base64) 
-                return;
-            
-            //Se hace la imagen para que Supabase la aceptee asi chido
-            const formData = new FormData();
-            formData.append('file', {
-                uri: imagen.uri, 
-                name:`avatar_${profile.email}.jpg`,
-                type:'image/jpeg',
-            } as any);
+            if (!imagen.base64) return;
 
-            //Ahora es todo lo de subir la foto
-            Alert.alert("Subiendo...","Tu foto se esta guardando");
-            const {data,error} = await supabase.storage.from('Avatar')
-                .upload(`avatar_${profile.email}.jpg`,formData,{
-                    upsert:true, //Sirve para actualizar la foto si ya existe
-                });
-                if (error){
-                    Alert.alert("Error",error.message);
-                    return;
-                }
-                //Se actualiza el avatar en el usuario
-                const { data: publicUrlData } = supabase.storage
+            setUploadingPhoto(true);
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            const fileName = `${user.id}.jpg`;
+            const byteArray = Uint8Array.from(atob(imagen.base64), c => c.charCodeAt(0));
+
+            const { error: uploadError } = await supabase.storage
                 .from('Avatar')
-                .getPublicUrl(`avatar_${profile.email}.jpg`);
+                .upload(fileName, byteArray, {
+                    contentType: 'image/jpeg',
+                    upsert: true,
+                });
 
-                setProfile({ ...profile, avatar: publicUrlData.publicUrl });
+            if (uploadError) {
+                Alert.alert('Error', uploadError.message);
+                return;
+            }
+
+            const { data: publicUrlData } = supabase.storage
+                .from('Avatar')
+                .getPublicUrl(fileName);
+
+            const avatarUrl = `${publicUrlData.publicUrl}?t=${Date.now()}`;
+
+            // Persist in auth metadata and profiles table
+            await Promise.all([
+                supabase.auth.updateUser({ data: { avatar_url: publicUrlData.publicUrl } }),
+                supabase.from('profiles').update({ avatar_url: publicUrlData.publicUrl }).eq('id', user.id),
+            ]);
+
+            setProfile((prev: any) => ({ ...prev, avatar: avatarUrl }));
+            Alert.alert('¡Listo!', 'Foto de perfil actualizada.');
         } catch (error) {
-            console.log("Error subiendo foto:", error);
-            Alert.alert("Error", "No se pudo subir la foto");
+            console.log('Error subiendo foto:', error);
+            Alert.alert('Error', 'No se pudo subir la foto');
+        } finally {
+            setUploadingPhoto(false);
         }
-    }
+    };
 
     useEffect(() => {
         getProfile();
@@ -85,33 +105,84 @@ export default function ProfileScreen() {
                 setProfile({
                     fullName: user.user_metadata?.full_name || 'Usuario',
                     email: user.email,
-                    avatar: user.user_metadata?.avatar_url || 'https://ui-avatars.com/api/?background=219ebc&color=fff&size=200'
+                    avatar: user.user_metadata?.avatar_url || 'https://ui-avatars.com/api/?background=219ebc&color=fff&size=200',
                 });
 
                 if (isWorkshop) {
-                    // Cargar datos del taller si es workshop
                     const { data: workshop } = await supabase
                         .from('workshops')
                         .select('*, workshop_staff!inner(*)')
                         .eq('workshop_staff.user_id', user.id)
                         .single();
-                    
+
                     if (workshop) {
-                         setWorkshopData(workshop);
-                         // Cargar servicios
-                         const { data: services } = await supabase
-                             .from('workshop_services')
-                             .select('custom_price, service:service_catalog(name)')
-                             .eq('workshop_id', workshop.id)
-                             .limit(3);
-                         setWorkshopServices(services || []);
+                        setWorkshopData(workshop);
+                        setDescription(workshop.description || '');
+                        setAvailability(workshop.opening_hours || '');
+                        const { data: services } = await supabase
+                            .from('workshop_services')
+                            .select('custom_price, service:service_catalog(name)')
+                            .eq('workshop_id', workshop.id)
+                            .limit(3);
+                        setWorkshopServices(services || []);
                     }
+                } else {
+                    const { data: profileData } = await supabase
+                        .from('profiles')
+                        .select('bio, availability')
+                        .eq('id', user.id)
+                        .single();
+                    setDescription(profileData?.bio || '');
+                    setAvailability(profileData?.availability || '');
                 }
             }
         } catch (e) {
             console.log('Error loading profile', e);
         } finally {
             setLoading(false);
+        }
+    }
+
+    async function saveDescription() {
+        setSavingDesc(true);
+        try {
+            if (isWorkshop && workshopData) {
+                const { error } = await supabase.from('workshops').update({ description }).eq('id', workshopData.id);
+                if (error) throw error;
+                setWorkshopData((prev: any) => ({ ...prev, description }));
+            } else {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (!user) return;
+                const { error } = await supabase.from('profiles').update({ bio: description }).eq('id', user.id);
+                if (error) throw error;
+            }
+            setEditingDesc(false);
+        } catch (e: any) {
+            Alert.alert('Error', 'No se pudo guardar la descripción.');
+        } finally {
+            setSavingDesc(false);
+        }
+    }
+
+    async function saveAvailability() {
+        setSavingAvail(true);
+        try {
+            if (isWorkshop && workshopData) {
+                const field = 'opening_hours';
+                const { error } = await supabase.from('workshops').update({ [field]: availability }).eq('id', workshopData.id);
+                if (error) throw error;
+                setWorkshopData((prev: any) => ({ ...prev, opening_hours: availability }));
+            } else {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (!user) return;
+                const { error } = await supabase.from('profiles').update({ availability }).eq('id', user.id);
+                if (error) throw error;
+            }
+            setEditingAvail(false);
+        } catch (e: any) {
+            Alert.alert('Error', 'No se pudo guardar el horario.');
+        } finally {
+            setSavingAvail(false);
         }
     }
 
@@ -138,20 +209,118 @@ export default function ProfileScreen() {
                     <Ionicons name="settings-outline" size={24} color={THEME.text} />
                 </TouchableOpacity>
             </View>
+
             <View style={styles.profileHeader}>
                 <View style={styles.avatarContainer}>
-                    <TouchableOpacity onPress={cambiarFotoPerfil}>
+                    <TouchableOpacity onPress={cambiarFotoPerfil} disabled={uploadingPhoto}>
                         <Image
                             source={{ uri: profile?.avatar }}
                             style={styles.avatar}
                         />
+                        {uploadingPhoto && (
+                            <View style={styles.avatarOverlay}>
+                                <ActivityIndicator color="white" />
+                            </View>
+                        )}
                     </TouchableOpacity>
                     <View style={styles.verifiedBadge}>
-                        <Ionicons name={isWorkshop ? "shield-checkmark" : "star"} size={12} color="white" />
+                        <Ionicons name={isWorkshop ? 'shield-checkmark' : 'star'} size={12} color="white" />
+                    </View>
+                    <View style={styles.cameraBadge}>
+                        <Ionicons name="camera" size={12} color="white" />
                     </View>
                 </View>
                 <Text style={styles.userName}>{isWorkshop ? (workshopData?.name || profile?.fullName) : profile?.fullName}</Text>
                 <Text style={styles.userRole}>{isWorkshop ? 'Dueño de Taller' : 'Cliente'}</Text>
+            </View>
+
+            {/* DESCRIPCIÓN */}
+            <View style={styles.infoCard}>
+                <View style={styles.infoCardHeader}>
+                    <View style={styles.infoCardTitleRow}>
+                        <Ionicons name="person-outline" size={16} color={THEME.primary} />
+                        <Text style={styles.infoCardTitle}>Descripción</Text>
+                    </View>
+                    {!editingDesc ? (
+                        <TouchableOpacity onPress={() => setEditingDesc(true)}>
+                            <Ionicons name="pencil-outline" size={18} color={THEME.textLight} />
+                        </TouchableOpacity>
+                    ) : (
+                        <TouchableOpacity onPress={() => { setEditingDesc(false); }}
+                        >
+                            <Ionicons name="close-outline" size={20} color={THEME.textLight} />
+                        </TouchableOpacity>
+                    )}
+                </View>
+                {editingDesc ? (
+                    <View>
+                        <TextInput
+                            style={styles.infoInput}
+                            value={description}
+                            onChangeText={setDescription}
+                            placeholder={isWorkshop ? 'Describe tu taller...' : 'Cuéntanos sobre ti...'}
+                            placeholderTextColor={THEME.textLight}
+                            multiline
+                            numberOfLines={3}
+                            textAlignVertical="top"
+                        />
+                        <TouchableOpacity
+                            style={styles.saveButton}
+                            onPress={saveDescription}
+                            disabled={savingDesc}
+                        >
+                            {savingDesc ? <ActivityIndicator color="white" size="small" /> : <Text style={styles.saveButtonText}>Guardar</Text>}
+                        </TouchableOpacity>
+                    </View>
+                ) : (
+                    <Text style={[styles.infoValue, !description && styles.infoValueEmpty]}>
+                        {description || (isWorkshop ? 'Sin descripción. Toca el lápiz para agregar.' : 'Sin descripción. Toca el lápiz para agregar.')}
+                    </Text>
+                )}
+            </View>
+
+            {/* HORARIO / DISPONIBILIDAD */}
+            <View style={styles.infoCard}>
+                <View style={styles.infoCardHeader}>
+                    <View style={styles.infoCardTitleRow}>
+                        <Ionicons name="time-outline" size={16} color={THEME.primary} />
+                        <Text style={styles.infoCardTitle}>{isWorkshop ? 'Horario de Atención' : 'Disponibilidad'}</Text>
+                    </View>
+                    {!editingAvail ? (
+                        <TouchableOpacity onPress={() => setEditingAvail(true)}>
+                            <Ionicons name="pencil-outline" size={18} color={THEME.textLight} />
+                        </TouchableOpacity>
+                    ) : (
+                        <TouchableOpacity onPress={() => setEditingAvail(false)}>
+                            <Ionicons name="close-outline" size={20} color={THEME.textLight} />
+                        </TouchableOpacity>
+                    )}
+                </View>
+                {editingAvail ? (
+                    <View>
+                        <TextInput
+                            style={styles.infoInput}
+                            value={availability}
+                            onChangeText={setAvailability}
+                            placeholder={isWorkshop ? 'Ej: Lun-Vie 9:00 AM - 6:00 PM' : 'Ej: Fines de semana'}
+                            placeholderTextColor={THEME.textLight}
+                        />
+                        <TouchableOpacity
+                            style={styles.saveButton}
+                            onPress={saveAvailability}
+                            disabled={savingAvail}
+                        >
+                            {savingAvail ? <ActivityIndicator color="white" size="small" /> : <Text style={styles.saveButtonText}>Guardar</Text>}
+                        </TouchableOpacity>
+                    </View>
+                ) : (
+                    <View style={styles.availabilityRow}>
+                        <Ionicons name="calendar-outline" size={14} color={THEME.textLight} />
+                        <Text style={[styles.infoValue, !availability && styles.infoValueEmpty, { flex: 1 }]}>
+                            {availability || 'Sin horario. Toca el lápiz para agregar.'}
+                        </Text>
+                    </View>
+                )}
             </View>
 
             <View style={styles.actionsContainer}>
@@ -163,11 +332,11 @@ export default function ProfileScreen() {
                         onPress={() => router.push('/my-vehicles')}
                     />
                 )}
-                
+
                 <LinkCard
-                    icon={isWorkshop ? "construct-outline" : "business-outline"}
-                    title={isWorkshop ? "Administrar Taller" : "Mi Información"}
-                    subtitle={isWorkshop ? "Gestionar servicios y citas" : "Dirección, horarios y contacto"}
+                    icon={isWorkshop ? 'construct-outline' : 'business-outline'}
+                    title={isWorkshop ? 'Administrar Taller' : 'Mi Información'}
+                    subtitle={isWorkshop ? 'Gestionar servicios y citas' : 'Dirección, horarios y contacto'}
                     onPress={() => router.push(isWorkshop ? '/workshop-admin' : '/client-info')}
                 />
 
@@ -188,7 +357,7 @@ export default function ProfileScreen() {
             {isWorkshop ? (
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>Servicios del Taller</Text>
-                    
+
                     <View style={styles.servicesListCard}>
                         {workshopServices.length === 0 ? (
                             <Text style={styles.emptyServicesText}>Aún no has agregado servicios.</Text>
@@ -200,8 +369,8 @@ export default function ProfileScreen() {
                                 </View>
                             ))
                         )}
-                        
-                        <TouchableOpacity 
+
+                        <TouchableOpacity
                             style={styles.manageButton}
                             onPress={() => router.push('/workshop-admin')}
                         >
@@ -225,7 +394,6 @@ export default function ProfileScreen() {
                     </View>
                 </View>
             )}
-
         </ScrollView>
     );
 }
@@ -244,7 +412,6 @@ function LinkCard({ icon, title, subtitle, onPress }: { icon: any, title: string
         </TouchableOpacity>
     );
 }
-
 
 const styles = StyleSheet.create({
     container: {
@@ -280,6 +447,17 @@ const styles = StyleSheet.create({
         borderRadius: 50,
         backgroundColor: '#E5E7EB',
     },
+    avatarOverlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
+        borderRadius: 50,
+        backgroundColor: 'rgba(0,0,0,0.45)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
     verifiedBadge: {
         position: 'absolute',
         bottom: 0,
@@ -288,6 +466,19 @@ const styles = StyleSheet.create({
         width: 28,
         height: 28,
         borderRadius: 14,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 2,
+        borderColor: 'white',
+    },
+    cameraBadge: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        backgroundColor: THEME.secondary,
+        width: 26,
+        height: 26,
+        borderRadius: 13,
         justifyContent: 'center',
         alignItems: 'center',
         borderWidth: 2,
@@ -399,7 +590,6 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         fontSize: 14,
     },
-    // Workshop specific styles
     servicesListCard: {
         backgroundColor: 'white',
         borderRadius: 16,
@@ -439,5 +629,70 @@ const styles = StyleSheet.create({
     manageButtonText: {
         color: THEME.primary,
         fontWeight: 'bold',
-    }
+    },
+    infoCard: {
+        backgroundColor: THEME.cardBg,
+        borderRadius: 16,
+        padding: 16,
+        marginHorizontal: 20,
+        marginBottom: 14,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+        elevation: 2,
+    },
+    infoCardHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 10,
+    },
+    infoCardTitleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
+    infoCardTitle: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: THEME.textLight,
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+    },
+    infoValue: {
+        fontSize: 15,
+        color: THEME.text,
+        lineHeight: 22,
+    },
+    infoValueEmpty: {
+        color: THEME.textLight,
+        fontStyle: 'italic',
+        fontSize: 14,
+    },
+    infoInput: {
+        backgroundColor: '#F3F4F6',
+        borderRadius: 12,
+        padding: 12,
+        fontSize: 15,
+        color: THEME.text,
+        minHeight: 44,
+    },
+    saveButton: {
+        backgroundColor: THEME.primary,
+        borderRadius: 12,
+        paddingVertical: 10,
+        alignItems: 'center',
+        marginTop: 10,
+    },
+    saveButtonText: {
+        color: 'white',
+        fontWeight: '700',
+        fontSize: 15,
+    },
+    availabilityRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
 });
