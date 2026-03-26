@@ -224,7 +224,7 @@ export default function WorkshopAppointmentDetails() {
 
           {statusDropdownOpen ? (
             <View style={styles.statusDropdown}>
-              {['in_progress', 'on_hold', 'ready', 'completed'].map((statusValue) => (
+              {['in_progress', 'on_hold', 'ready', 'completed', 'cancelled'].map((statusValue) => (
                 <TouchableOpacity
                   key={statusValue}
                   style={styles.statusOption}
