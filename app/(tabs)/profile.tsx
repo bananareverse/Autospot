@@ -1,11 +1,11 @@
-import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, Alert, ActivityIndicator, TextInput } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
-import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '@/lib/supabase';
-import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
 import { useAuth } from '@/ctx/AuthContext';
+import { supabase } from '@/lib/supabase';
+import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import { useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 const THEME = {
     background: '#FFFFFF',
@@ -235,93 +235,97 @@ export default function ProfileScreen() {
             </View>
 
             {/* DESCRIPCIÓN */}
-            <View style={styles.infoCard}>
-                <View style={styles.infoCardHeader}>
-                    <View style={styles.infoCardTitleRow}>
-                        <Ionicons name="person-outline" size={16} color={THEME.primary} />
-                        <Text style={styles.infoCardTitle}>Descripción</Text>
+            {isWorkshop && (
+                <View style={styles.infoCard}>
+                    <View style={styles.infoCardHeader}>
+                        <View style={styles.infoCardTitleRow}>
+                            <Ionicons name="person-outline" size={16} color={THEME.primary} />
+                            <Text style={styles.infoCardTitle}>Descripción</Text>
+                        </View>
+                        {!editingDesc ? (
+                            <TouchableOpacity onPress={() => setEditingDesc(true)}>
+                                <Ionicons name="pencil-outline" size={18} color={THEME.textLight} />
+                            </TouchableOpacity>
+                        ) : (
+                            <TouchableOpacity onPress={() => { setEditingDesc(false); }}
+                            >
+                                <Ionicons name="close-outline" size={20} color={THEME.textLight} />
+                            </TouchableOpacity>
+                        )}
                     </View>
-                    {!editingDesc ? (
-                        <TouchableOpacity onPress={() => setEditingDesc(true)}>
-                            <Ionicons name="pencil-outline" size={18} color={THEME.textLight} />
-                        </TouchableOpacity>
+                    {editingDesc ? (
+                        <View>
+                            <TextInput
+                                style={styles.infoInput}
+                                value={description}
+                                onChangeText={setDescription}
+                                placeholder={isWorkshop ? 'Describe tu taller...' : 'Cuéntanos sobre ti...'}
+                                placeholderTextColor={THEME.textLight}
+                                multiline
+                                numberOfLines={3}
+                                textAlignVertical="top"
+                            />
+                            <TouchableOpacity
+                                style={styles.saveButton}
+                                onPress={saveDescription}
+                                disabled={savingDesc}
+                            >
+                                {savingDesc ? <ActivityIndicator color="white" size="small" /> : <Text style={styles.saveButtonText}>Guardar</Text>}
+                            </TouchableOpacity>
+                        </View>
                     ) : (
-                        <TouchableOpacity onPress={() => { setEditingDesc(false); }}
-                        >
-                            <Ionicons name="close-outline" size={20} color={THEME.textLight} />
-                        </TouchableOpacity>
+                        <Text style={[styles.infoValue, !description && styles.infoValueEmpty]}>
+                            {description || (isWorkshop ? 'Sin descripción. Toca el lápiz para agregar.' : 'Sin descripción. Toca el lápiz para agregar.')}
+                        </Text>
                     )}
                 </View>
-                {editingDesc ? (
-                    <View>
-                        <TextInput
-                            style={styles.infoInput}
-                            value={description}
-                            onChangeText={setDescription}
-                            placeholder={isWorkshop ? 'Describe tu taller...' : 'Cuéntanos sobre ti...'}
-                            placeholderTextColor={THEME.textLight}
-                            multiline
-                            numberOfLines={3}
-                            textAlignVertical="top"
-                        />
-                        <TouchableOpacity
-                            style={styles.saveButton}
-                            onPress={saveDescription}
-                            disabled={savingDesc}
-                        >
-                            {savingDesc ? <ActivityIndicator color="white" size="small" /> : <Text style={styles.saveButtonText}>Guardar</Text>}
-                        </TouchableOpacity>
-                    </View>
-                ) : (
-                    <Text style={[styles.infoValue, !description && styles.infoValueEmpty]}>
-                        {description || (isWorkshop ? 'Sin descripción. Toca el lápiz para agregar.' : 'Sin descripción. Toca el lápiz para agregar.')}
-                    </Text>
-                )}
-            </View>
+            )}
 
             {/* HORARIO / DISPONIBILIDAD */}
-            <View style={styles.infoCard}>
-                <View style={styles.infoCardHeader}>
-                    <View style={styles.infoCardTitleRow}>
-                        <Ionicons name="time-outline" size={16} color={THEME.primary} />
-                        <Text style={styles.infoCardTitle}>{isWorkshop ? 'Horario de Atención' : 'Disponibilidad'}</Text>
+            {isWorkshop && (
+                <View style={styles.infoCard}>
+                    <View style={styles.infoCardHeader}>
+                        <View style={styles.infoCardTitleRow}>
+                            <Ionicons name="time-outline" size={16} color={THEME.primary} />
+                            <Text style={styles.infoCardTitle}>{isWorkshop ? 'Horario de Atención' : 'Disponibilidad'}</Text>
+                        </View>
+                        {!editingAvail ? (
+                            <TouchableOpacity onPress={() => setEditingAvail(true)}>
+                                <Ionicons name="pencil-outline" size={18} color={THEME.textLight} />
+                            </TouchableOpacity>
+                        ) : (
+                            <TouchableOpacity onPress={() => setEditingAvail(false)}>
+                                <Ionicons name="close-outline" size={20} color={THEME.textLight} />
+                            </TouchableOpacity>
+                        )}
                     </View>
-                    {!editingAvail ? (
-                        <TouchableOpacity onPress={() => setEditingAvail(true)}>
-                            <Ionicons name="pencil-outline" size={18} color={THEME.textLight} />
-                        </TouchableOpacity>
+                    {editingAvail ? (
+                        <View>
+                            <TextInput
+                                style={styles.infoInput}
+                                value={availability}
+                                onChangeText={setAvailability}
+                                placeholder={isWorkshop ? 'Ej: Lun-Vie 9:00 AM - 6:00 PM' : 'Ej: Fines de semana'}
+                                placeholderTextColor={THEME.textLight}
+                            />
+                            <TouchableOpacity
+                                style={styles.saveButton}
+                                onPress={saveAvailability}
+                                disabled={savingAvail}
+                            >
+                                {savingAvail ? <ActivityIndicator color="white" size="small" /> : <Text style={styles.saveButtonText}>Guardar</Text>}
+                            </TouchableOpacity>
+                        </View>
                     ) : (
-                        <TouchableOpacity onPress={() => setEditingAvail(false)}>
-                            <Ionicons name="close-outline" size={20} color={THEME.textLight} />
-                        </TouchableOpacity>
+                        <View style={styles.availabilityRow}>
+                            <Ionicons name="calendar-outline" size={14} color={THEME.textLight} />
+                            <Text style={[styles.infoValue, !availability && styles.infoValueEmpty, { flex: 1 }]}>
+                                {availability || 'Sin horario. Toca el lápiz para agregar.'}
+                            </Text>
+                        </View>
                     )}
                 </View>
-                {editingAvail ? (
-                    <View>
-                        <TextInput
-                            style={styles.infoInput}
-                            value={availability}
-                            onChangeText={setAvailability}
-                            placeholder={isWorkshop ? 'Ej: Lun-Vie 9:00 AM - 6:00 PM' : 'Ej: Fines de semana'}
-                            placeholderTextColor={THEME.textLight}
-                        />
-                        <TouchableOpacity
-                            style={styles.saveButton}
-                            onPress={saveAvailability}
-                            disabled={savingAvail}
-                        >
-                            {savingAvail ? <ActivityIndicator color="white" size="small" /> : <Text style={styles.saveButtonText}>Guardar</Text>}
-                        </TouchableOpacity>
-                    </View>
-                ) : (
-                    <View style={styles.availabilityRow}>
-                        <Ionicons name="calendar-outline" size={14} color={THEME.textLight} />
-                        <Text style={[styles.infoValue, !availability && styles.infoValueEmpty, { flex: 1 }]}>
-                            {availability || 'Sin horario. Toca el lápiz para agregar.'}
-                        </Text>
-                    </View>
-                )}
-            </View>
+            )}
 
             <View style={styles.actionsContainer}>
                 {!isWorkshop && (
@@ -379,21 +383,7 @@ export default function ProfileScreen() {
                         </TouchableOpacity>
                     </View>
                 </View>
-            ) : (
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Guardados</Text>
-
-                    <View style={styles.emptyCard}>
-                        <Text style={styles.emptyCardTitle}>No has guardado nada aún</Text>
-                        <Text style={styles.emptyCardText}>Las refacciones o servicios que guardes aparecerán aquí.</Text>
-
-                        <TouchableOpacity style={styles.searchButton}>
-                            <Ionicons name="search" size={18} color={THEME.primary} style={{ marginRight: 8 }} />
-                            <Text style={styles.searchButtonText}>Buscar inventario</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-            )}
+            ) : null}
         </ScrollView>
     );
 }

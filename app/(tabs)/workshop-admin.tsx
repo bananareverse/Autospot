@@ -1,25 +1,23 @@
-import { useCallback, useEffect, useState, useRef } from 'react';
-import { 
-  ActivityIndicator, 
-  Alert, 
-  FlatList, 
-  StyleSheet, 
-  Text, 
-  TextInput, 
-  TouchableOpacity, 
-  View, 
-  ScrollView,
-  Dimensions,
-  KeyboardAvoidingView,
-  Platform
-} from 'react-native';
-import { Stack } from 'expo-router';
-import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/ctx/AuthContext';
-import { LinearGradient } from 'expo-linear-gradient';
+import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Stack, useRouter } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  FlatList,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
+} from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
-import * as Location from 'expo-location';
 const { width, height } = Dimensions.get('window');
 
 type WorkshopContext = {
@@ -37,6 +35,14 @@ type Appointment = {
 type Service = {
   id: string;
   name: string;
+};
+
+type WorkshopService = {
+  id: string;
+  service_id: string;
+  service_name: string;
+  custom_price?: number;
+  active: boolean;
 };
 
 const THEME = {
@@ -74,13 +80,18 @@ const PAYMENT_METHODS = [
 
 export default function WorkshopAdminScreen() {
   const { isWorkshop, role } = useAuth();
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [ctx, setCtx] = useState<WorkshopContext | null>(null);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [services, setServices] = useState<Service[]>([]);
+  const [workshopServices, setWorkshopServices] = useState<WorkshopService[]>([]);
   const [selectedServiceId, setSelectedServiceId] = useState('');
   const [estimatedPrice, setEstimatedPrice] = useState('');
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingService, setEditingService] = useState<WorkshopService | null>(null);
+  const [editingPrice, setEditingPrice] = useState('');
 
   // Registration State
   const [showRegistration, setShowRegistration] = useState(false);
@@ -107,7 +118,7 @@ export default function WorkshopAdminScreen() {
       }
       setCtx(context);
 
-      const [{ data: appointmentData }, { data: serviceData }] = await Promise.all([
+      const [{ data: appointmentData }, { data: serviceData }, { data: workshopServiceData }] = await Promise.all([
         supabase
           .from('appointments')
           .select(`
@@ -127,10 +138,28 @@ export default function WorkshopAdminScreen() {
           .select('id, name')
           .eq('active', true)
           .order('name', { ascending: true }),
+        supabase
+          .from('workshop_services')
+          .select(`
+            id,
+            service_id,
+            custom_price,
+            active,
+            service:service_catalog(name)
+          `)
+          .eq('workshop_id', context.workshopId)
+          .eq('active', true),
       ]);
 
       setAppointments((appointmentData || []) as Appointment[]);
       setServices((serviceData || []) as Service[]);
+      setWorkshopServices((workshopServiceData || []).map((ws: any) => ({
+        id: ws.id,
+        service_id: ws.service_id,
+        service_name: ws.service?.name || 'Servicio',
+        custom_price: ws.custom_price,
+        active: ws.active,
+      })) as WorkshopService[]);
     } catch (e: any) {
       console.error(e);
     } finally {
@@ -265,6 +294,71 @@ export default function WorkshopAdminScreen() {
       Alert.alert('Actualizado', `La cita ahora está en estado: ${newStatus.toUpperCase()}`);
     } catch (e: any) {
       Alert.alert('Error', 'No se pudo actualizar el estado de la cita.');
+    }
+  }
+
+  async function handleDeleteWorkshopService(workshopServiceId: string) {
+    Alert.alert(
+      'Eliminar Servicio',
+      '¿Estás seguro que deseas eliminar este servicio del taller?',
+      [
+        { text: 'Cancelar', onPress: () => {} },
+        {
+          text: 'Eliminar',
+          onPress: async () => {
+            try {
+              setSaving(true);
+              const { error } = await supabase
+                .from('workshop_services')
+                .update({ active: false })
+                .eq('id', workshopServiceId);
+
+              if (error) throw error;
+              setWorkshopServices(prev => prev.filter(s => s.id !== workshopServiceId));
+              Alert.alert('Listo', 'Servicio eliminado del taller.');
+            } catch (e: any) {
+              Alert.alert('Error', 'No se pudo eliminar el servicio.');
+            } finally {
+              setSaving(false);
+            }
+          },
+          style: 'destructive'
+        }
+      ]
+    );
+  }
+
+  function openEditServiceModal(service: WorkshopService) {
+    setEditingService(service);
+    setEditingPrice(service.custom_price?.toString() || '');
+    setShowEditModal(true);
+  }
+
+  async function handleUpdateWorkshopService() {
+    if (!editingService) return;
+
+    setSaving(true);
+    try {
+      const parsedPrice = editingPrice.trim() ? Number(editingPrice) : null;
+      const { error } = await supabase
+        .from('workshop_services')
+        .update({ custom_price: parsedPrice })
+        .eq('id', editingService.id);
+
+      if (error) throw error;
+      setWorkshopServices(prev => prev.map(s => 
+        s.id === editingService.id 
+          ? { ...s, custom_price: parsedPrice || undefined }
+          : s
+      ));
+      setShowEditModal(false);
+      setEditingService(null);
+      setEditingPrice('');
+      Alert.alert('Listo', 'Precio actualizado correctamente.');
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'No se pudo actualizar el servicio.');
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -533,7 +627,7 @@ export default function WorkshopAdminScreen() {
       <Stack.Screen options={{ title: 'Panel de Control', headerShown: true }} />
 
       <FlatList
-        data={appointments}
+        data={appointments.filter(a => a.status !== 'completed' && a.status !== 'cancelled')}
         keyExtractor={(item) => item.id}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
@@ -544,16 +638,57 @@ export default function WorkshopAdminScreen() {
                 style={styles.welcomeGradient}
               >
                 <Text style={styles.welcomeTitle}>¡Hola, {ctx.workshopName}!</Text>
-                <Text style={styles.welcomeSubtitle}>Hoy tienes {appointments.length} citas programadas.</Text>
+                <Text style={styles.welcomeSubtitle}>Tienes {appointments.filter(a => a.status !== 'completed' && a.status !== 'cancelled').length} citas activas.</Text>
               </LinearGradient>
             </View>
 
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Servicios del Taller</Text>
+              <Text style={styles.sectionTitle}>Mis Servicios</Text>
+            </View>
+
+            {workshopServices.length > 0 ? (
+              <View style={styles.servicesListContainer}>
+                {workshopServices.map((ws) => (
+                  <View key={ws.id} style={styles.workshopServiceCard}>
+                    <View style={styles.serviceInfo}>
+                      <Text style={styles.serviceName}>{ws.service_name}</Text>
+                      {ws.custom_price ? (
+                        <Text style={styles.servicePrice}>${ws.custom_price.toFixed(2)}</Text>
+                      ) : (
+                        <Text style={[styles.servicePrice, { fontStyle: 'italic' }]}>Sin precio personalizado</Text>
+                      )}
+                    </View>
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                      <TouchableOpacity
+                        style={[styles.deleteServiceBtn, { backgroundColor: '#DBEAFE' }]}
+                        onPress={() => openEditServiceModal(ws)}
+                        disabled={saving}
+                      >
+                        <Ionicons name="pencil-outline" size={18} color={THEME.primary} />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.deleteServiceBtn}
+                        onPress={() => handleDeleteWorkshopService(ws.id)}
+                        disabled={saving}
+                      >
+                        <Ionicons name="trash-outline" size={20} color="#EF4444" />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <View style={styles.emptyServicesCard}>
+                <Text style={styles.emptyServicesText}>No has agregado servicios aún</Text>
+              </View>
+            )}
+
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Agregar Servicio</Text>
             </View>
 
             <View style={styles.actionCard}>
-              <Text style={styles.cardLabel}>Agregar nuevo servicio</Text>
+              <Text style={styles.cardLabel}>Selecciona un servicio</Text>
               <View style={styles.chipScrollContainer}>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.scrollChips}>
                   {services.map((service) => (
@@ -572,7 +707,7 @@ export default function WorkshopAdminScreen() {
 
               <View style={styles.priceRow}>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.labelMini}>Precio estimado</Text>
+                  <Text style={styles.labelMini}>Precio estimado (opcional)</Text>
                   <TextInput
                     style={styles.inputSmall}
                     value={estimatedPrice}
@@ -592,95 +727,74 @@ export default function WorkshopAdminScreen() {
             </View>
 
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Citas Recientes</Text>
+              <Text style={styles.sectionTitle}>Citas Activas</Text>
             </View>
           </View>
         }
-        renderItem={({ item }) => (
-          <View style={styles.appointmentCard}>
-            <View style={styles.appointmentHeader}>
-              <View style={styles.dateCircle}>
-                <Text style={styles.dateDay}>{new Date(item.scheduled_at).getDate()}</Text>
-                <Text style={styles.dateMonth}>
-                  {new Date(item.scheduled_at).toLocaleString('default', { month: 'short' }).toUpperCase()}
+        renderItem={({ item }) => {
+          const appointmentDate = new Date(item.scheduled_at);
+          const statusColors: Record<string, { bg: string; color: string }> = {
+            pending: { bg: '#FEF3C7', color: '#92400E' },
+            approved: { bg: '#DBEAFE', color: '#1E40AF' },
+            in_workshop: { bg: '#E0E7FF', color: '#312E81' },
+            scheduled: { bg: '#FEF3C7', color: '#92400E' },
+            confirmed: { bg: '#DBEAFE', color: '#1E40AF' },
+            completed: { bg: '#D1FAE5', color: '#065F46' },
+            cancelled: { bg: '#FEE2E2', color: '#B91C1C' }
+          };
+          const statusColor = statusColors[item.status] || { bg: '#F3F4F6', color: '#6B7280' };
+
+          return (
+            <View style={styles.appointmentCard}>
+              {/* Status Badge in Corner */}
+              <View style={[styles.statusCornerBadge, { backgroundColor: statusColor.bg }]}>
+                <Text style={[styles.statusCornerText, { color: statusColor.color }]}>
+                  {item.status === 'pending' ? 'Pendiente' :
+                   item.status === 'approved' ? 'Aprobada' :
+                   item.status === 'in_workshop' ? 'En Taller' :
+                   item.status === 'scheduled' ? 'Programada' :
+                   item.status === 'confirmed' ? 'Confirmada' :
+                   item.status === 'completed' ? 'Completada' : 'Cancelada'}
                 </Text>
               </View>
-              <View style={styles.appointmentInfo}>
-                <View>
-                  <Text style={styles.appointmentTime}>
-                    {new Date(item.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+
+              {/* Date/Time Section */}
+              <View style={styles.appointmentMainInfo}>
+                <View style={styles.dateTimeBox}>
+                  <Text style={styles.appointmentDateText}>
+                    {appointmentDate.getDate()} {appointmentDate.toLocaleString('default', { month: 'short' })}
                   </Text>
-                  <Text style={styles.clientName}>{(item as any).client?.first_name} {(item as any).client?.last_name}</Text>
+                  <Text style={styles.appointmentTimeText}>
+                    {appointmentDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </Text>
                 </View>
-                <View style={[styles.statusBadge, { 
-                  backgroundColor: 
-                    item.status === 'completed' ? '#D1FAE5' : 
-                    item.status === 'cancelled' ? '#FEE2E2' : 
-                    item.status === 'approved' ? '#DBEAFE' : '#FEF3C7' 
-                }]}>
-                  <Text style={[styles.statusText, { 
-                    color: 
-                      item.status === 'completed' ? '#065F46' : 
-                      item.status === 'cancelled' ? '#B91C1C' : 
-                      item.status === 'approved' ? '#1E40AF' : '#92400E' 
-                  }]}>
-                    {item.status.toUpperCase()}
+
+                {/* Client and Details */}
+                <View style={styles.appointmentDetailsColumn}>
+                  <Text style={styles.appointmentClientName}>
+                    {(item as any).client?.first_name} {(item as any).client?.last_name}
+                  </Text>
+                  <Text style={styles.appointmentDetailRow}>
+                    <Ionicons name="car-outline" size={12} color={THEME.primary} /> {(item as any).vehicle?.make} {(item as any).vehicle?.model}
+                  </Text>
+                  <Text style={styles.appointmentDetailRow}>
+                    <Ionicons name="construct-outline" size={12} color={THEME.primary} /> {(item as any).service?.name || 'Servicio General'}
                   </Text>
                 </View>
               </View>
-            </View>
-            
-            <View style={styles.appointmentDetailsBox}>
-               <Text style={styles.detailText}>
-                 <Ionicons name="car-outline" size={14} color={THEME.textSoft} /> {(item as any).vehicle?.make} {(item as any).vehicle?.model} ({(item as any).vehicle?.license_plate})
-               </Text>
-               <Text style={styles.detailText}>
-                 <Ionicons name="construct-outline" size={14} color={THEME.textSoft} /> {(item as any).service?.name || 'Servicio General'}
-               </Text>
-            </View>
 
-            {item.notes && (
-              <View style={styles.appointmentNotesBox}>
-                <Text style={styles.appointmentNotes}>{item.notes}</Text>
-              </View>
-            )}
-
-            <View style={styles.statusActions}>
-               {item.status === 'pending' && (
-                 <TouchableOpacity 
-                   style={[styles.smallActionBtn, { backgroundColor: THEME.primary }]}
-                   onPress={() => handleUpdateStatus(item.id, 'approved')}
-                 >
-                   <Text style={styles.smallActionBtnText}>Aceptar Cita</Text>
-                 </TouchableOpacity>
-               )}
-               {item.status === 'approved' && (
-                 <TouchableOpacity 
-                   style={[styles.smallActionBtn, { backgroundColor: THEME.secondary }]}
-                   onPress={() => handleUpdateStatus(item.id, 'in_workshop')}
-                 >
-                   <Text style={styles.smallActionBtnText}>Recibir en Taller</Text>
-                 </TouchableOpacity>
-               )}
-               {item.status === 'in_workshop' && (
-                 <TouchableOpacity 
-                   style={[styles.smallActionBtn, { backgroundColor: '#10B981' }]}
-                   onPress={() => handleUpdateStatus(item.id, 'completed')}
-                 >
-                   <Text style={styles.smallActionBtnText}>Finalizar</Text>
-                 </TouchableOpacity>
-               )}
-               {item.status !== 'completed' && item.status !== 'cancelled' && (
-                 <TouchableOpacity 
-                   style={styles.cancelBtn}
-                   onPress={() => handleUpdateStatus(item.id, 'cancelled')}
-                 >
-                   <Text style={styles.cancelBtnText}>Rechazar</Text>
-                 </TouchableOpacity>
-               )}
+              {/* Action Button */}
+              <TouchableOpacity
+                style={styles.manageServiceBtn}
+                onPress={() => router.push({ pathname: '/workshop-appointment-details', params: { appointmentId: item.id } })}
+              >
+                <Ionicons name="settings-outline" size={16} color="white" />
+                <Text style={styles.manageServiceBtnText}>Gestionar</Text>
+              </TouchableOpacity>
             </View>
-          </View>
-        )}
+          );
+        }}
+
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Ionicons name="calendar-outline" size={48} color={THEME.border} />
@@ -689,6 +803,72 @@ export default function WorkshopAdminScreen() {
         }
         contentContainerStyle={{ paddingBottom: 28 }}
       />
+
+      {/* Edit Service Modal */}
+      <Modal
+        visible={showEditModal}
+        transparent
+        animationType="slide"
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <TouchableOpacity onPress={() => setShowEditModal(false)}>
+                <Ionicons name="chevron-back" size={24} color={THEME.text} />
+              </TouchableOpacity>
+              <Text style={styles.modalTitle}>Editar Servicio</Text>
+              <View style={{ width: 24 }} />
+            </View>
+
+            {editingService && (
+              <ScrollView style={styles.modalBody}>
+                <View style={styles.formGroup}>
+                  <Text style={styles.formLabel}>Servicio</Text>
+                  <View style={styles.formFieldReadOnly}>
+                    <Text style={styles.formInputText}>{editingService.service_name}</Text>
+                  </View>
+                </View>
+
+                <View style={styles.formGroup}>
+                  <Text style={styles.formLabel}>Precio Personalizado (Opcional)</Text>
+                  <TextInput
+                    style={styles.formInput}
+                    value={editingPrice}
+                    onChangeText={setEditingPrice}
+                    placeholder="$ 0.00"
+                    keyboardType="decimal-pad"
+                    editable={!saving}
+                  />
+                  <Text style={styles.formHelper}>Deja vacío para usar el precio por defecto</Text>
+                </View>
+
+                <TouchableOpacity
+                  style={[styles.modalPrimaryButton, saving && { opacity: 0.6 }]}
+                  onPress={handleUpdateWorkshopService}
+                  disabled={saving}
+                >
+                  {saving ? (
+                    <ActivityIndicator color="white" />
+                  ) : (
+                    <>
+                      <Ionicons name="checkmark" size={20} color="white" />
+                      <Text style={styles.modalPrimaryButtonText}>Guardar Cambios</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.modalSecondaryButton}
+                  onPress={() => setShowEditModal(false)}
+                  disabled={saving}
+                >
+                  <Text style={styles.modalSecondaryButtonText}>Cancelar</Text>
+                </TouchableOpacity>
+              </ScrollView>
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -1128,5 +1308,219 @@ const styles = StyleSheet.create({
     color: '#EF4444',
     fontSize: 12,
     fontWeight: 'bold',
+  },
+  // WORKSHOP SERVICES
+  servicesListContainer: {
+    marginTop: 12,
+  },
+  workshopServiceCard: {
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  serviceInfo: {
+    flex: 1,
+    marginRight: 16,
+  },
+  serviceName: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: THEME.text,
+    marginBottom: 4,
+  },
+  servicePrice: {
+    fontSize: 13,
+    color: THEME.textSoft,
+    fontWeight: '500',
+  },
+  deleteServiceBtn: {
+    padding: 12,
+    backgroundColor: '#FEE2E2',
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyServicesCard: {
+    padding: 24,
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: THEME.border,
+  },
+  emptyServicesText: {
+    fontSize: 14,
+    color: THEME.textSoft,
+    fontStyle: 'italic',
+  },
+  // APPOINTMENT CARD - NEW DESIGN
+  statusCornerBadge: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    zIndex: 10,
+  },
+  statusCornerText: {
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  appointmentMainInfo: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 12,
+  },
+  dateTimeBox: {
+    width: 60,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  appointmentDateText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: THEME.primary,
+  },
+  appointmentTimeText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: THEME.text,
+    marginTop: 2,
+  },
+  appointmentDetailsColumn: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  appointmentClientName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: THEME.text,
+    marginBottom: 4,
+  },
+  appointmentDetailRow: {
+    fontSize: 12,
+    color: THEME.textSoft,
+    marginVertical: 1,
+  },
+  manageServiceBtn: {
+    backgroundColor: THEME.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    gap: 6,
+    marginTop: 12,
+    marginBottom: 0,
+  },
+  manageServiceBtnText: {
+    color: 'white',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  // MODAL STYLES
+  modalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '85%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: THEME.border,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: THEME.text,
+  },
+  modalBody: {
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+  },
+  formGroup: {
+    marginBottom: 20,
+  },
+  formLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: THEME.text,
+    marginBottom: 8,
+  },
+  formInput: {
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
+    padding: 12,
+    fontSize: 16,
+    color: THEME.text,
+    borderWidth: 1,
+    borderColor: THEME.border,
+  },
+  formFieldReadOnly: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: THEME.border,
+  },
+  formInputText: {
+    fontSize: 16,
+    color: THEME.text,
+    fontWeight: '500',
+  },
+  formHelper: {
+    fontSize: 11,
+    color: THEME.textSoft,
+    fontStyle: 'italic',
+    marginTop: 6,
+  },
+  modalPrimaryButton: {
+    backgroundColor: THEME.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 12,
+    marginTop: 20,
+    gap: 8,
+  },
+  modalPrimaryButtonText: {
+    color: 'white',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  modalSecondaryButton: {
+    backgroundColor: '#F3F4F6',
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginTop: 10,
+    marginBottom: 20,
+  },
+  modalSecondaryButtonText: {
+    color: THEME.text,
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });

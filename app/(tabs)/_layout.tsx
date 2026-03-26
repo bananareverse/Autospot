@@ -6,6 +6,7 @@ import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useAuth } from '@/ctx/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
@@ -40,13 +41,21 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="agenda"
+        options={{
+          title: 'Agenda',
+          href: isWorkshop ? undefined : null,
+          tabBarIcon: ({ color }) => (<Ionicons name="calendar" size={24} color={color} />),
+        }}
+      />
+      <Tabs.Screen
         name="appointments"
         options={{
           title: 'Citas',
+          href: isWorkshop ? null : undefined, // Hide for workshops
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="calendar" color={color} />,
         }}
       />
-    
       <Tabs.Screen
         name="MapScreen"
         options={{
@@ -58,18 +67,18 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="workshop-admin"
+        options={{
+          title: 'Panel de Control',
+          href: isWorkshop ? undefined : null,
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="wrench.and.screwdriver.fill" color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="profile"
         options={{
           title: 'Perfil',
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="person.crop.circle" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="workshop-admin"
-        options={{
-          title: 'Mi Taller',
-          href: isWorkshop ? undefined : null,
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="wrench.and.screwdriver.fill" color={color} />,
         }}
       />
     </Tabs>
