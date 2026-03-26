@@ -34,7 +34,7 @@ export default function HomeScreen() {
 
     useEffect(() => {
         if (isWorkshop) {
-            router.replace('/workshop-admin');
+            router.replace('/(tabs)/agenda');
             return;
         }
         fetchNearbyWorkshops();

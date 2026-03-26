@@ -1,13 +1,13 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Dimensions } from 'react-native';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useState, useMemo } from 'react';
+import { scheduleAppointment } from '@/lib/appointments';
 import { supabase } from '@/lib/supabase';
 import { getUserVehicles } from '@/lib/vehicles';
-import { scheduleAppointment } from '@/lib/appointments';
+import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { LinearGradient } from 'expo-linear-gradient';
-import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import { useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Alert, Dimensions, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, ToastAndroid, TouchableOpacity, View } from 'react-native';
 
 const { width } = Dimensions.get('window');
 
@@ -44,8 +44,10 @@ export default function ScheduleAppointmentScreen() {
     const [selectedWorkshopId, setSelectedWorkshopId] = useState<string>(initialWorkshopId);
     const [selectedServiceId, setSelectedServiceId] = useState('');
     const [date, setDate] = useState(new Date());
+    const [showPicker, setShowPicker] = useState(false);
     const [showDatePicker, setShowDatePicker] = useState(Platform.OS === 'ios');
     const [notes, setNotes] = useState('');
+    const [workshopHours, setWorkshopHours] = useState<{ open: string | null; close: string | null }>({ open: null, close: null });
 
     const [loadingServices, setLoadingServices] = useState(false);
 
@@ -54,10 +56,11 @@ export default function ScheduleAppointmentScreen() {
             try {
                 setLoading(true);
                 // 1. Load Workshops
-                const { data: wData } = await supabase.from('workshops').select('id, name, address');
+                const { data: wData } = await supabase.from('workshops').select('id, name, address, opening_time, closing_time');
                 setWorkshops(wData || []);
                 if (wData && wData.length > 0 && !selectedWorkshopId) {
                     setSelectedWorkshopId(wData[0].id);
+                    setWorkshopHours({ open: wData[0].opening_time, close: wData[0].closing_time });
                 }
 
                 // 2. Load User Vehicles
@@ -108,19 +111,45 @@ export default function ScheduleAppointmentScreen() {
         loadServices();
     }, [selectedWorkshopId]);
 
+    // Actualizar horarios cuando cambia el taller seleccionado
+    useEffect(() => {
+        const workshop = workshops.find(w => w.id === selectedWorkshopId);
+        if (workshop) {
+            setWorkshopHours({ open: workshop.opening_time || null, close: workshop.closing_time || null });
+        }
+    }, [selectedWorkshopId, workshops]);
+
     const handleDateChange = (event: any, selectedDate?: Date) => {
-        // En la nueva arquitectura de React Native, desmontar al instante crashea Android ("dismiss of undefined").
         if (Platform.OS === 'android') {
             setTimeout(() => {
                 setShowDatePicker(false);
-            }, 300);
+            }, 50);
         }
         
         if (event.type === 'dismissed') {
             return;
         }
+
         if (selectedDate) {
             setDate(selectedDate);
+            
+            // Si el usuario acaba de seleccionar la fecha en Android, debemos abrir el selector de tiempo
+            if (Platform.OS === 'android' && event.type === 'set') {
+                // Pequeño timeout antes de abrir el modal de hora para evitar bugs de nueva UI de Android
+                setTimeout(() => {
+                    import('@react-native-community/datetimepicker').then(({ DateTimePickerAndroid }) => {
+                        DateTimePickerAndroid.open({
+                            value: selectedDate,
+                            mode: 'time',
+                            onChange: (e, selectedTime) => {
+                                if (e.type === 'set' && selectedTime) {
+                                    setDate(selectedTime);
+                                }
+                            }
+                        });
+                    });
+                }, 100);
+            }
         }
     };
 
@@ -128,6 +157,34 @@ export default function ScheduleAppointmentScreen() {
         if (!selectedVehicleId || !selectedWorkshopId) {
             Alert.alert('Faltan Datos', 'Por favor selecciona un vehículo y un taller.');
             return;
+        }
+
+        // Validar que la fecha no sea en el pasado
+        const now = new Date();
+        if (date <= now) {
+            Alert.alert('Fecha inválida', 'No puedes agendar una cita en una fecha u hora que ya pasó. Por favor selecciona una fecha futura.');
+            return;
+        }
+
+        // Validar horario del taller
+        if (workshopHours.open && workshopHours.close) {
+            const [openH, openM] = workshopHours.open.split(':').map(Number);
+            const [closeH, closeM] = workshopHours.close.split(':').map(Number);
+            const apptH = date.getHours();
+            const apptM = date.getMinutes();
+            const apptMins = apptH * 60 + apptM;
+            const openMins = openH * 60 + openM;
+            const closeMins = closeH * 60 + closeM;
+
+            if (apptMins < openMins || apptMins >= closeMins) {
+                const fmt = (h: number, m: number) =>
+                    `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+                Alert.alert(
+                    'Fuera de horario',
+                    `Este taller atiende de ${fmt(openH, openM)} a ${fmt(closeH, closeM)}. Por favor elige una hora dentro del horario de atención.`
+                );
+                return;
+            }
         }
 
         setSaving(true);
@@ -139,6 +196,15 @@ export default function ScheduleAppointmentScreen() {
                 scheduled_at: date,
                 notes: notes
             });
+
+            // Toast de confirmación en Android
+            if (Platform.OS === 'android') {
+                ToastAndroid.showWithGravity(
+                    '✅ ¡Cita agendada exitosamente!',
+                    ToastAndroid.LONG,
+                    ToastAndroid.BOTTOM
+                );
+            }
 
             Alert.alert('¡Cita Agendada!', 'Tu reserva se ha realizado con éxito.', [
                 { text: 'Ir a mis citas', onPress: () => router.push('/appointments') }
@@ -163,11 +229,7 @@ export default function ScheduleAppointmentScreen() {
         <View style={styles.container}>
             <StatusBar style="light" />
             <Stack.Screen options={{ 
-                title: 'AGENDAR CITA', 
-                headerTintColor: 'white',
-                headerTransparent: true,
-                headerTitleStyle: { fontWeight: 'bold' },
-                headerTitleAlign: 'center'
+                headerShown: false
             }} />
 
             <LinearGradient
@@ -181,6 +243,10 @@ export default function ScheduleAppointmentScreen() {
             >
                 <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
                     
+                    <View style={styles.header}>
+                        <Text style={styles.title}>Agendar Cita</Text>
+                    </View>
+
                     {/* SECCIÓN 1: VEHÍCULO */}
                     <View style={styles.section}>
                         <View style={styles.sectionHeader}>
@@ -281,24 +347,13 @@ export default function ScheduleAppointmentScreen() {
                                 <TouchableOpacity 
                                     style={styles.androidDateBtn} 
                                     onPress={() => {
-                                        DateTimePickerAndroid.open({
-                                            value: date,
-                                            mode: 'date',
-                                            minimumDate: new Date(),
-                                            onChange: (event, selectedDate) => {
-                                                if (event.type === 'set' && selectedDate) {
-                                                    setDate(selectedDate);
-                                                    DateTimePickerAndroid.open({
-                                                        value: selectedDate,
-                                                        mode: 'time',
-                                                        onChange: (e, selectedTime) => {
-                                                            if (e.type === 'set' && selectedTime) {
-                                                                setDate(selectedTime);
-                                                            }
-                                                        }
-                                                    });
-                                                }
-                                            }
+                                        import('@react-native-community/datetimepicker').then(({ DateTimePickerAndroid }) => {
+                                            DateTimePickerAndroid.open({
+                                                value: date,
+                                                mode: 'date',
+                                                minimumDate: new Date(),
+                                                onChange: handleDateChange
+                                            });
                                         });
                                     }}
                                 >
@@ -312,9 +367,7 @@ export default function ScheduleAppointmentScreen() {
                                     value={date}
                                     mode="datetime"
                                     display="inline"
-                                    onChange={(event, selectedDate) => {
-                                        if (selectedDate) setDate(selectedDate);
-                                    }}
+                                    onChange={handleDateChange}
                                     minimumDate={new Date()}
                                     themeVariant="light"
                                     accentColor={THEME.primary}
@@ -372,9 +425,19 @@ const styles = StyleSheet.create({
         top: 0,
     },
     scrollContent: {
-        paddingTop: 140,
+        paddingTop: Platform.OS === 'ios' ? 60 : 50,
         paddingHorizontal: 20,
         paddingBottom: 60,
+    },
+    header: {
+        marginBottom: 30,
+        paddingHorizontal: 4,
+    },
+    title: {
+        fontSize: 34,
+        fontWeight: '900',
+        color: 'white',
+        letterSpacing: 1,
     },
     loadingContainer: {
         flex: 1,

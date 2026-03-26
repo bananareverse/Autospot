@@ -32,7 +32,7 @@ function statusLabel(status: string) {
     case 'in_progress':
       return 'En proceso';
     case 'on_hold':
-      return 'En espera';
+      return 'En revisión';
     case 'ready':
       return 'Listo para entrega';
     case 'completed':
@@ -54,6 +54,28 @@ function statusStyle(status: string) {
     case 'completed': return { bg: '#A7F3D0', color: '#065F46' };
     case 'cancelled': return { bg: '#FECACA', color: '#991B1B' };
     default: return { bg: '#F3F4F6', color: '#6B7280' };
+  }
+}
+
+function formatDate(dateString: string) {
+  if (!dateString) return 'Fecha no disponible';
+  try {
+    const d = new Date(dateString);
+    if (isNaN(d.getTime())) return 'Fecha inválida';
+    return d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  } catch (e) {
+    return 'Error en fecha';
+  }
+}
+
+function formatTime(dateString: string) {
+  if (!dateString) return 'Hora no disponible';
+  try {
+    const d = new Date(dateString);
+    if (isNaN(d.getTime())) return 'Hora inválida';
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  } catch (e) {
+    return 'Error en hora';
   }
 }
 
@@ -97,12 +119,27 @@ export default function WorkshopAppointmentDetails() {
         .single();
 
       if (queryError) {
+        console.error("SUPABASE ERROR WAD:", queryError);
         setError('No se pudo cargar la cita');
       } else {
+        let finalPrice = data.service?.estimated_price;
+        if (data.workshop_id && data.service_id) {
+            const { data: ws } = await supabase
+                .from('workshop_services')
+                .select('custom_price')
+                .eq('workshop_id', data.workshop_id)
+                .eq('service_id', data.service_id)
+                .maybeSingle();
+            if (ws?.custom_price) {
+                finalPrice = ws.custom_price;
+            }
+        }
+        data.final_price = finalPrice;
         setAppointment(data);
         setSelectedStatus(data?.status || '');
       }
     } catch (e) {
+      console.error("TRYCATCH ERROR WAD:", e);
       setError('Error al cargar la cita');
     } finally {
       setLoading(false);
@@ -115,7 +152,7 @@ export default function WorkshopAppointmentDetails() {
     try {
       const payload: any = { status: newStatus };
       if (newStatus === 'on_hold') {
-        payload.notes = reason || 'En espera';
+        payload.notes = reason || 'En revisión';
       }
 
       const { error } = await supabase
@@ -242,7 +279,7 @@ export default function WorkshopAppointmentDetails() {
 
           {selectedStatus === 'on_hold' && (
             <View style={styles.holdReasonBox}>
-              <Text style={styles.detailKey}>Motivo de en espera</Text>
+              <Text style={styles.detailKey}>Motivo de revisión</Text>
               <TextInput
                 style={styles.holdReasonInput}
                 value={holdReason}
@@ -257,7 +294,7 @@ export default function WorkshopAppointmentDetails() {
             style={[styles.actionButton, { backgroundColor: THEME.secondary, marginTop: 10 }]}
             onPress={() => {
               if (selectedStatus === 'on_hold' && !holdReason.trim()) {
-                Alert.alert('Requerido', 'Agrega razón para poner en espera.');
+                Alert.alert('Requerido', 'Agrega razón para poner en revisión.');
                 return;
               }
               updateStatus(selectedStatus || appointment.status, selectedStatus === 'on_hold' ? holdReason.trim() : undefined);
@@ -286,7 +323,7 @@ export default function WorkshopAppointmentDetails() {
                     style={styles.holdReasonInput}
                     value={cancelReason}
                     onChangeText={setCancelReason}
-                    placeholder="Describe por qué se cancela" 
+                    placeholder="Describe por qué se cancela"
                     editable={!saving}
                   />
                   <TouchableOpacity
@@ -318,8 +355,8 @@ export default function WorkshopAppointmentDetails() {
 
         <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>Detalles de la Cita</Text>
-          <Text style={styles.detailRow}><Text style={styles.detailKey}>Fecha:</Text> {new Date(appointment.scheduled_at).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</Text>
-          <Text style={styles.detailRow}><Text style={styles.detailKey}>Hora:</Text> {new Date(appointment.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+          <Text style={styles.detailRow}><Text style={styles.detailKey}>Fecha:</Text> {formatDate(appointment.scheduled_at)}</Text>
+          <Text style={styles.detailRow}><Text style={styles.detailKey}>Hora:</Text> {formatTime(appointment.scheduled_at)}</Text>
           {appointment.notes ? <Text style={styles.detailRow}><Text style={styles.detailKey}>Notas:</Text> {appointment.notes}</Text> : null}
         </View>
 
@@ -341,7 +378,7 @@ export default function WorkshopAppointmentDetails() {
           <Text style={styles.sectionTitle}>Servicio</Text>
           <Text style={styles.detailRow}><Text style={styles.detailKey}>Nombre:</Text> {appointment.service?.name || 'N/A'}</Text>
           <Text style={styles.detailRow}><Text style={styles.detailKey}>Descripción:</Text> {appointment.service?.description || 'N/A'}</Text>
-          <Text style={styles.detailRow}><Text style={styles.detailKey}>Precio Estimado:</Text> {appointment.service?.estimated_price ? `$${appointment.service.estimated_price.toFixed(2)}` : 'N/A'}</Text>
+          <Text style={styles.detailRow}><Text style={styles.detailKey}>Precio Estimado:</Text> {appointment.final_price != null ? `$${appointment.final_price.toFixed(2)}` : 'N/A'}</Text>
         </View>
 
 

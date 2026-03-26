@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/ctx/AuthContext';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 const { width } = Dimensions.get('window');
 
@@ -29,6 +30,14 @@ export default function ProfileScreen() {
     const [loading, setLoading] = useState(true);
     const [workshopServices, setWorkshopServices] = useState<any[]>([]);
     const [workshopData, setWorkshopData] = useState<any>(null);
+    
+    // States for Workshop Hours
+    const [showOpeningPicker, setShowOpeningPicker] = useState(false);
+    const [showClosingPicker, setShowClosingPicker] = useState(false);
+    const [tempOpening, setTempOpening] = useState(new Date());
+    const [tempClosing, setTempClosing] = useState(new Date());
+    const [updatingHours, setUpdatingHours] = useState(false);
+
 
     const cambiarFotoPerfil = async () => {
         try {
@@ -116,6 +125,37 @@ export default function ProfileScreen() {
         if (error) Alert.alert('Error', error.message);
     };
 
+    const handleSaveHours = async (type: 'open' | 'close', selectedTime: Date) => {
+        if (!workshopData) return;
+        
+        setUpdatingHours(true);
+        const timeStr = selectedTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+        const field = type === 'open' ? 'opening_time' : 'closing_time';
+
+        try {
+            const { error } = await supabase
+                .from('workshops')
+                .update({ [field]: timeStr })
+                .eq('id', workshopData.id);
+
+            if (error) throw error;
+
+            setWorkshopData({ ...workshopData, [field]: timeStr });
+            if (Platform.OS === 'android') {
+                import('react-native').then(({ ToastAndroid }) => {
+                    ToastAndroid.show('Horario actualizado', ToastAndroid.SHORT);
+                });
+            }
+        } catch (e: any) {
+            Alert.alert('Error', 'No se pudo actualizar el horario: ' + e.message);
+        } finally {
+            setUpdatingHours(false);
+            setShowOpeningPicker(false);
+            setShowClosingPicker(false);
+        }
+    };
+
+
     if (loading) {
         return (
             <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
@@ -138,9 +178,6 @@ export default function ProfileScreen() {
                 
                 <View style={styles.header}>
                     <Text style={styles.title}>Mi Perfil</Text>
-                    <TouchableOpacity onPress={() => router.push('/')} style={styles.settingsBtn}>
-                        <Ionicons name="settings-outline" size={22} color="white" />
-                    </TouchableOpacity>
                 </View>
 
                 {/* Profile Card Floating over Gradient */}
@@ -188,55 +225,120 @@ export default function ProfileScreen() {
                     </View>
 
                     {isWorkshop ? (
-                        <View style={styles.section}>
-                            <Text style={styles.sectionTitle}>Tus Servicios Destacados</Text>
-                            
-                            <View style={styles.servicesListCard}>
-                                {workshopServices.length === 0 ? (
-                                    <View style={styles.emptyServices}>
-                                        <Ionicons name="construct-outline" size={32} color={THEME.border} />
-                                        <Text style={styles.emptyServicesText}>Aún no has agregado servicios.</Text>
-                                    </View>
-                                ) : (
-                                    workshopServices.map((s, idx) => (
-                                        <View key={idx} style={[styles.serviceRow, idx === workshopServices.length - 1 && { borderBottomWidth: 0 }]}>
-                                            <View style={styles.serviceRowLeft}>
-                                                <View style={styles.serviceIconBg}>
-                                                    <Ionicons name="construct" size={16} color={THEME.primary} />
-                                                </View>
-                                                <Text style={styles.serviceNameText}>{s.service?.name}</Text>
-                                            </View>
-                                            <Text style={styles.servicePriceText}>${s.custom_price || 0}</Text>
-                                        </View>
-                                    ))
-                                )}
+                        <>
+                            <View style={styles.section}>
+                                <Text style={styles.sectionTitle}>Tus Servicios Destacados</Text>
                                 
-                                <TouchableOpacity 
-                                    style={styles.manageButton}
-                                    onPress={() => router.push('/workshop-admin')}
-                                >
-                                    <Text style={styles.manageButtonText}>Gestionar Inventario</Text>
-                                    <Ionicons name="arrow-forward" size={16} color={THEME.primary} />
-                                </TouchableOpacity>
-                            </View>
-                        </View>
-                    ) : (
-                        <View style={styles.section}>
-                            <Text style={styles.sectionTitle}>Guardados</Text>
-
-                            <View style={styles.emptyCard}>
-                                <View style={styles.emptyCardIconBox}>
-                                    <Ionicons name="bookmark" size={30} color={THEME.primary} />
+                                <View style={styles.servicesListCard}>
+                                    {workshopServices.length === 0 ? (
+                                        <View style={styles.emptyServices}>
+                                            <Ionicons name="construct-outline" size={32} color={THEME.border} />
+                                            <Text style={styles.emptyServicesText}>Aún no has agregado servicios.</Text>
+                                        </View>
+                                    ) : (
+                                        workshopServices.map((s, idx) => (
+                                            <View key={idx} style={[styles.serviceRow, idx === workshopServices.length - 1 && { borderBottomWidth: 0 }]}>
+                                                <View style={styles.serviceRowLeft}>
+                                                    <View style={styles.serviceIconBg}>
+                                                        <Ionicons name="construct" size={16} color={THEME.primary} />
+                                                    </View>
+                                                    <Text style={styles.serviceNameText}>{s.service?.name}</Text>
+                                                </View>
+                                                <Text style={styles.servicePriceText}>${s.custom_price || 0}</Text>
+                                            </View>
+                                        ))
+                                    )}
+                                    
+                                    <TouchableOpacity 
+                                        style={styles.manageButton}
+                                        onPress={() => router.push('/(tabs)/agenda')}
+                                    >
+                                        <Text style={styles.manageButtonText}>Gestionar Inventario</Text>
+                                        <Ionicons name="arrow-forward" size={16} color={THEME.primary} />
+                                    </TouchableOpacity>
                                 </View>
-                                <Text style={styles.emptyCardTitle}>No has guardado nada</Text>
-                                <Text style={styles.emptyCardText}>Tus refacciones o servicios favoritos aparecerán aquí.</Text>
-
-                                <TouchableOpacity style={styles.searchButton}>
-                                    <Ionicons name="search" size={18} color={THEME.primary} style={{ marginRight: 8 }} />
-                                    <Text style={styles.searchButtonText}>Explorar Catálogo</Text>
-                                </TouchableOpacity>
                             </View>
-                        </View>
+
+                            <View style={styles.section}>
+                                <View style={styles.sectionHeaderRow}>
+                                    <Text style={styles.sectionTitle}>Horario de Atención</Text>
+                                    {updatingHours && <ActivityIndicator size="small" color={THEME.primary} />}
+                                </View>
+                                
+                                <View style={styles.hoursCard}>
+                                    <TouchableOpacity 
+                                        style={styles.hourAction}
+                                        onPress={() => {
+                                            const [h, m] = (workshopData?.opening_time || '09:00').split(':');
+                                            const d = new Date(); d.setHours(parseInt(h), parseInt(m));
+                                            setTempOpening(d);
+                                            setShowOpeningPicker(true);
+                                        }}
+                                    >
+                                        <View style={styles.hourInfo}>
+                                            <Ionicons name="time-outline" size={20} color={THEME.primary} />
+                                            <Text style={styles.hourLabel}>Apertura:</Text>
+                                        </View>
+                                        <Text style={styles.hourValue}>{workshopData?.opening_time?.slice(0, 5) || '09:00'}</Text>
+                                        <Ionicons name="pencil" size={14} color={THEME.textMuted} />
+                                    </TouchableOpacity>
+
+                                    <View style={styles.hourDivider} />
+
+                                    <TouchableOpacity 
+                                        style={styles.hourAction}
+                                        onPress={() => {
+                                            const [h, m] = (workshopData?.closing_time || '18:00').split(':');
+                                            const d = new Date(); d.setHours(parseInt(h), parseInt(m));
+                                            setTempClosing(d);
+                                            setShowClosingPicker(true);
+                                        }}
+                                    >
+                                        <View style={styles.hourInfo}>
+                                            <Ionicons name="moon-outline" size={20} color={THEME.accent} />
+                                            <Text style={styles.hourLabel}>Cierre:</Text>
+                                        </View>
+                                        <Text style={styles.hourValue}>{workshopData?.closing_time?.slice(0, 5) || '18:00'}</Text>
+                                        <Ionicons name="pencil" size={14} color={THEME.textMuted} />
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+                        </>
+                    ) : null}
+
+                    {/* Show pickers */}
+                    {showOpeningPicker && (
+                        <DateTimePicker
+                            value={tempOpening}
+                            mode="time"
+                            is24Hour={true}
+                            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                            onChange={(event, date) => {
+                                if (Platform.OS === 'android') {
+                                    setShowOpeningPicker(false);
+                                    if (event.type === 'set' && date) handleSaveHours('open', date);
+                                } else if (date) {
+                                    setTempOpening(date);
+                                }
+                            }}
+                        />
+                    )}
+
+                    {showClosingPicker && (
+                        <DateTimePicker
+                            value={tempClosing}
+                            mode="time"
+                            is24Hour={true}
+                            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                            onChange={(event, date) => {
+                                if (Platform.OS === 'android') {
+                                    setShowClosingPicker(false);
+                                    if (event.type === 'set' && date) handleSaveHours('close', date);
+                                } else if (date) {
+                                    setTempClosing(date);
+                                }
+                            }}
+                        />
                     )}
 
                     {/* Logout Button */}
@@ -296,9 +398,6 @@ const styles = StyleSheet.create({
         paddingBottom: 40,
     },
     header: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
         paddingHorizontal: 24,
         paddingTop: Platform.OS === 'ios' ? 60 : 50,
         marginBottom: 20,
@@ -309,11 +408,7 @@ const styles = StyleSheet.create({
         color: 'white',
         letterSpacing: 1,
     },
-    settingsBtn: {
-        backgroundColor: 'rgba(255,255,255,0.2)',
-        padding: 10,
-        borderRadius: 16,
-    },
+
     profileCard: {
         backgroundColor: THEME.card,
         marginHorizontal: 24,
@@ -426,13 +521,74 @@ const styles = StyleSheet.create({
         borderBottomColor: THEME.border,
     },
     iconBox: {
-        width: 44,
-        height: 44,
-        borderRadius: 14,
-        backgroundColor: 'rgba(33, 158, 188, 0.1)',
+        width: 40,
+        height: 40,
+        borderRadius: 10,
+        backgroundColor: '#F3F4F6',
         justifyContent: 'center',
         alignItems: 'center',
         marginRight: 16,
+    },
+    sectionHeaderRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 8,
+    },
+    hoursCard: {
+        backgroundColor: 'white',
+        borderRadius: 16,
+        padding: 4,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 10,
+        elevation: 2,
+    },
+    hourAction: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 16,
+        justifyContent: 'space-between',
+    },
+    hourInfo: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        flex: 1,
+    },
+    hourLabel: {
+        fontSize: 15,
+        color: THEME.text,
+        fontWeight: '500',
+    },
+    hourValue: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: THEME.secondary,
+        marginRight: 12,
+    },
+    hourDivider: {
+        height: 1,
+        backgroundColor: '#F3F4F6',
+        marginHorizontal: 16,
+    },
+    iosPickerContainer: {
+        backgroundColor: 'white',
+        marginTop: 8,
+        borderRadius: 12,
+        overflow: 'hidden',
+    },
+    iosPickerDone: {
+        padding: 12,
+        alignItems: 'flex-end',
+        borderBottomWidth: 1,
+        borderBottomColor: '#F3F4F6',
+    },
+    iosPickerDoneText: {
+        color: THEME.primary,
+        fontWeight: 'bold',
+        fontSize: 16,
     },
     actionText: {
         color: THEME.text,

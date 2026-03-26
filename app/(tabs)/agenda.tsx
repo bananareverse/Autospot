@@ -36,6 +36,7 @@ interface AppointmentWithDetails {
     created_at: string;
     vehicle?: Vehicle;
     service?: Service;
+    final_price?: number;
 }
 
 export default function AgendaScreen() {
@@ -96,9 +97,21 @@ export default function AgendaScreen() {
             } else {
                 console.log("Total appointments fetched:", (data || []).length);
                 if (data && data.length > 0) {
-                    data.forEach((apt) => {
-                        console.log(`Cita: ID=${apt.id}, Fecha=${apt.scheduled_at}, Status=${apt.status}`);
-                    });
+                    for (let apt of data) {
+                        apt.final_price = apt.service?.estimated_price;
+                        if (apt.workshop_id && apt.service_id) {
+                            const { data: ws } = await supabase
+                                .from('workshop_services')
+                                .select('custom_price')
+                                .eq('workshop_id', apt.workshop_id)
+                                .eq('service_id', apt.service_id)
+                                .maybeSingle();
+                            if (ws?.custom_price) {
+                                apt.final_price = ws.custom_price;
+                            }
+                        }
+                        console.log(`Cita: ID=${apt.id}, Fecha=${apt.scheduled_at}, Status=${apt.status}, Precio=${apt.final_price}`);
+                    }
                 } else {
                     console.log("No appointments found for workshop:", workshopStaff.workshop_id);
                 }

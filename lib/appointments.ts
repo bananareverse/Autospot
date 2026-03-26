@@ -22,6 +22,7 @@ export type Appointment = {
         name: string;
         estimated_price: number;
     };
+    final_price?: number;
 };
 
 export async function getUserAppointments() {
@@ -49,7 +50,24 @@ export async function getUserAppointments() {
         .order('scheduled_at', { ascending: true });
 
     if (error) throw error;
-    return appointments as Appointment[];
+
+    const appts = appointments as any[];
+    for (let apt of appts) {
+        apt.final_price = apt.service?.estimated_price;
+        if (apt.workshop_id && apt.service_id) {
+            const { data: ws } = await supabase
+                .from('workshop_services')
+                .select('custom_price')
+                .eq('workshop_id', apt.workshop_id)
+                .eq('service_id', apt.service_id)
+                .maybeSingle();
+            if (ws?.custom_price) {
+                apt.final_price = ws.custom_price;
+            }
+        }
+    }
+
+    return appts as Appointment[];
 }
 
 export async function scheduleAppointment(params: {

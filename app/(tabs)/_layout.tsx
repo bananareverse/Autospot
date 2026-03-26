@@ -57,14 +57,6 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="workshop-agenda"
-        options={{
-          title: 'Agenda',
-          href: isWorkshop ? undefined : null,
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="calendar" color={color} />,
-        }}
-      />
-      <Tabs.Screen
         name="MapScreen"
         options={{
           title: "Mapa",

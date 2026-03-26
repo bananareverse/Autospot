@@ -126,8 +126,8 @@ export default function AppointmentsScreen() {
                                 key={apt.id}
                                 style={styles.card}
                                 onPress={() => router.push({
-                                    pathname: '/appointment-details',
-                                    params: { id: apt.id }
+                                    pathname: '/client-appointment-details',
+                                    params: { appointmentId: apt.id }
                                 })}
                             >
                                 <View style={styles.cardHeader}>
@@ -145,7 +145,7 @@ export default function AppointmentsScreen() {
                                         </View>
                                         <View style={styles.priceContainer}>
                                             <Text style={styles.priceText}>
-                                                ${apt.service?.estimated_price?.toLocaleString('es-MX', { minimumFractionDigits: 0 })}
+                                                ${apt.final_price != null ? apt.final_price.toLocaleString('es-MX', { minimumFractionDigits: 0 }) : 'N/A'}
                                             </Text>
                                         </View>
                                     </View>
