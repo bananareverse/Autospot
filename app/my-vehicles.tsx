@@ -3,17 +3,21 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
-import { getUserVehicles, addVehicle } from '@/lib/vehicles';
+import { getUserVehicles, addVehicle, deleteVehicle } from '@/lib/vehicles';
 import { getBrands, getModelsByBrand, VehicleBrand, VehicleModel } from '@/lib/vehicle-catalog';
 import { Picker } from '@react-native-picker/picker';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const THEME = {
-    background: '#FFFFFF',
+    primary: '#219ebc',    
+    secondary: '#023047',  
+    accent: '#fb8500',     
+    bg: '#FFFFFF',
+    card: '#F9FAFB',
     text: '#1F2937',
-    textLight: '#6B7280',
-    primary: '#219ebc',
-    secondary: '#023047',
-    cardBg: '#F3F4F6',
+    textMuted: '#6B7280',
+    border: '#E5E7EB',
+    danger: '#EF4444',
 };
 
 export default function MyVehiclesScreen() {
@@ -57,7 +61,7 @@ export default function MyVehiclesScreen() {
 
     async function handleBrandChange(brandId: string) {
         setSelectedBrandId(brandId);
-        setSelectedModelId(''); // Reset model
+        setSelectedModelId(''); 
         if (brandId) {
             try {
                 const data = await getModelsByBrand(brandId);
@@ -100,6 +104,30 @@ export default function MyVehiclesScreen() {
         }
     }
 
+    function handleDeleteVehicle(id: string) {
+        Alert.alert(
+            "Eliminar Vehículo",
+            "¿Estás seguro que deseas eliminar este vehículo de tu lista?",
+            [
+                { text: "Cancelar", style: "cancel" },
+                { 
+                    text: "Eliminar", 
+                    style: "destructive",
+                    onPress: async () => {
+                        try {
+                            setLoading(true);
+                            await deleteVehicle(id);
+                            loadVehicles();
+                        } catch (e: any) {
+                            Alert.alert("Error", e.message);
+                            setLoading(false);
+                        }
+                    } 
+                }
+            ]
+        );
+    }
+
     function resetForm() {
         setSelectedBrandId('');
         setSelectedModelId('');
@@ -108,39 +136,59 @@ export default function MyVehiclesScreen() {
 
     return (
         <View style={styles.container}>
-            <StatusBar style="dark" />
-            <Stack.Screen options={{ title: 'Mis Vehículos', headerBackTitle: 'Perfil' }} />
+            <StatusBar style="light" />
+            <Stack.Screen options={{ 
+                title: 'Mis Vehículos', 
+                headerTintColor: 'white',
+                headerTransparent: true,
+                headerStyle: { backgroundColor: 'transparent' },
+                headerTitleStyle: { fontWeight: '900', fontSize: 20 },
+            }} />
+
+            <LinearGradient
+                colors={[THEME.secondary, THEME.primary]}
+                style={styles.headerGradient}
+            />
 
             {loading ? (
                 <View style={styles.center}>
                     <ActivityIndicator color={THEME.primary} size="large" />
+                    <Text style={{ marginTop: 10, color: THEME.textMuted }}>Sincronizando garaje...</Text>
                 </View>
             ) : (
-                <ScrollView contentContainerStyle={styles.content}>
+                <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
                     {vehicles.length === 0 ? (
                         <View style={styles.emptyState}>
-                            <Ionicons name="car-sport-outline" size={60} color="#D1D5DB" />
-                            <Text style={styles.emptyText}>No tienes vehículos registrados</Text>
+                            <View style={styles.emptyIconBox}>
+                                <Ionicons name="car-sport" size={60} color={THEME.primary} />
+                            </View>
+                            <Text style={styles.emptyTitle}>Sin vehículos</Text>
+                            <Text style={styles.emptyText}>Registra tu primer auto para comenzar a agendar citas.</Text>
                         </View>
                     ) : (
                         vehicles.map((car) => (
                             <View key={car.id} style={styles.carCard}>
                                 <View style={styles.carIconBox}>
-                                    <Ionicons name="car-sport" size={32} color={THEME.primary} />
+                                    <Ionicons name="car-sport" size={28} color={THEME.primary} />
                                 </View>
                                 <View style={styles.carInfo}>
-                                    <Text style={styles.carTitle}>{car.make} {car.model}</Text>
-                                    <Text style={styles.carPlate}>{car.license_plate}</Text>
+                                    <Text style={styles.carTitle} numberOfLines={1}>{car.make} {car.model}</Text>
+                                    <View style={styles.plateBadge}>
+                                        <Text style={styles.carPlate}>{car.license_plate}</Text>
+                                    </View>
                                 </View>
-                                <TouchableOpacity>
-                                    <Ionicons name="ellipsis-vertical" size={20} color="#9CA3AF" />
+                                <TouchableOpacity 
+                                    style={styles.deleteButton}
+                                    onPress={() => handleDeleteVehicle(car.id)}
+                                >
+                                    <Ionicons name="trash-outline" size={20} color={THEME.danger} />
                                 </TouchableOpacity>
                             </View>
                         ))
                     )}
 
                     <TouchableOpacity style={styles.addButton} onPress={() => setModalVisible(true)}>
-                        <Ionicons name="add" size={24} color="white" />
+                        <Ionicons name="add-circle-outline" size={24} color="white" />
                         <Text style={styles.addButtonText}>Registrar Nuevo Auto</Text>
                     </TouchableOpacity>
                 </ScrollView>
@@ -152,47 +200,67 @@ export default function MyVehiclesScreen() {
                     <View style={styles.modalContent}>
                         <View style={styles.modalHeader}>
                             <Text style={styles.modalTitle}>Nuevo Vehículo</Text>
-                            <TouchableOpacity onPress={() => { setModalVisible(false); resetForm(); }}>
-                                <Ionicons name="close-circle" size={30} color="#9CA3AF" />
+                            <TouchableOpacity style={styles.closeBtn} onPress={() => { setModalVisible(false); resetForm(); }}>
+                                <Ionicons name="close" size={24} color={THEME.text} />
                             </TouchableOpacity>
                         </View>
 
-                        <ScrollView>
-                            {/* Marca Dropdown */}
-                            <Text style={styles.label}>Marca</Text>
-                            <View style={styles.pickerContainer}>
-                                <Picker
-                                    selectedValue={selectedBrandId}
-                                    onValueChange={handleBrandChange}
-                                    style={styles.picker}
-                                >
-                                    <Picker.Item label="Selecciona una marca..." value="" />
-                                    {brands.map(brand => (
-                                        <Picker.Item key={brand.id} label={brand.name} value={brand.id} />
-                                    ))}
-                                </Picker>
-                            </View>
+                        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
+                            
+                            {/* Marca Selection */}
+                            <Text style={styles.label}>1. Selecciona la Marca</Text>
+                            <ScrollView 
+                                horizontal 
+                                showsHorizontalScrollIndicator={false} 
+                                contentContainerStyle={styles.chipScrollContainer}
+                                style={styles.chipScroll}
+                            >
+                                {brands.map(brand => (
+                                    <TouchableOpacity 
+                                        key={brand.id}
+                                        style={[styles.chip, selectedBrandId === brand.id && styles.activeChip]}
+                                        onPress={() => handleBrandChange(brand.id)}
+                                        activeOpacity={0.7}
+                                    >
+                                        <Text style={[styles.chipText, selectedBrandId === brand.id && styles.activeChipText]}>
+                                            {brand.name}
+                                        </Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </ScrollView>
 
-                            {/* Modelo Dropdown */}
-                            <Text style={styles.label}>Modelo</Text>
-                            <View style={styles.pickerContainer}>
-                                <Picker
-                                    selectedValue={selectedModelId}
-                                    onValueChange={setSelectedModelId}
-                                    enabled={!!selectedBrandId}
-                                    style={styles.picker}
-                                >
-                                    <Picker.Item label="Selecciona un modelo..." value="" />
+                            {/* Modelo Selection */}
+                            <Text style={styles.label}>2. Selecciona el Modelo</Text>
+                            {selectedBrandId ? (
+                                <View style={styles.modelsGrid}>
                                     {models.map(model => (
-                                        <Picker.Item key={model.id} label={model.name} value={model.id} />
+                                        <TouchableOpacity 
+                                            key={model.id}
+                                            style={[styles.modelChip, selectedModelId === model.id && styles.activeModelChip]}
+                                            onPress={() => setSelectedModelId(model.id)}
+                                            activeOpacity={0.7}
+                                        >
+                                            <Text style={[styles.modelChipText, selectedModelId === model.id && styles.activeChipText]}>
+                                                {model.name}
+                                            </Text>
+                                        </TouchableOpacity>
                                     ))}
-                                </Picker>
-                            </View>
-
+                                </View>
+                            ) : (
+                                <View style={styles.disabledModelBox}>
+                                    <Ionicons name="car-sport-outline" size={30} color={THEME.border} />
+                                    <Text style={styles.disabledModelText}>Elige una marca para ver sus modelos</Text>
+                                </View>
+                            )}
                         </ScrollView>
 
-                        <TouchableOpacity style={styles.saveButton} onPress={handleSaveVehicle} disabled={saving}>
-                            {saving ? <ActivityIndicator color="white" /> : <Text style={styles.saveButtonText}>Guardar Vehículo</Text>}
+                        <TouchableOpacity style={[styles.saveButton, saving && { opacity: 0.7 }]} onPress={handleSaveVehicle} disabled={saving}>
+                            {saving ? <ActivityIndicator color="white" /> : (
+                                <>
+                                    <Ionicons name="checkmark-circle" size={20} color="white" />
+                                    <Text style={styles.saveButtonText}>Guardar Vehículo</Text>
+                                </>
+                            )}
                         </TouchableOpacity>
                     </View>
                 </KeyboardAvoidingView>
@@ -205,7 +273,15 @@ export default function MyVehiclesScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#FFFFFF',
+        backgroundColor: THEME.bg,
+    },
+    headerGradient: {
+        height: 140,
+        width: '100%',
+        position: 'absolute',
+        top: 0,
+        borderBottomLeftRadius: 30,
+        borderBottomRightRadius: 30,
     },
     center: {
         flex: 1,
@@ -213,38 +289,66 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     content: {
-        padding: 20,
+        paddingTop: 110,
+        paddingHorizontal: 20,
+        paddingBottom: 40,
         gap: 16,
     },
     emptyState: {
         alignItems: 'center',
+        backgroundColor: THEME.card,
+        borderRadius: 24,
         padding: 40,
-        opacity: 0.7,
+        borderWidth: 1,
+        borderColor: THEME.border,
+        marginTop: 20,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.05,
+        shadowRadius: 10,
+        elevation: 2,
+    },
+    emptyIconBox: {
+        width: 100,
+        height: 100,
+        borderRadius: 50,
+        backgroundColor: 'rgba(33, 158, 188, 0.1)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+    emptyTitle: {
+        fontSize: 20,
+        fontWeight: '900',
+        color: THEME.secondary,
+        marginBottom: 8,
     },
     emptyText: {
-        marginTop: 10,
-        color: THEME.textLight,
-        fontSize: 16,
+        color: THEME.textMuted,
+        fontSize: 14,
+        textAlign: 'center',
+        lineHeight: 20,
     },
     carCard: {
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: 'white',
-        padding: 16,
-        borderRadius: 16,
+        padding: 20,
+        borderRadius: 20,
         borderWidth: 1,
-        borderColor: '#E5E7EB',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
+        borderColor: THEME.border,
+        shadowColor: THEME.secondary,
+        shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.05,
-        shadowRadius: 5,
-        elevation: 2,
+        shadowRadius: 10,
+        elevation: 3,
+        marginBottom: 4,
     },
     carIconBox: {
         width: 50,
         height: 50,
-        backgroundColor: '#e0f2fe',
-        borderRadius: 12,
+        backgroundColor: 'rgba(33, 158, 188, 0.1)',
+        borderRadius: 16,
         justifyContent: 'center',
         alignItems: 'center',
         marginRight: 16,
@@ -253,98 +357,218 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     carTitle: {
-        fontSize: 16,
-        fontWeight: 'bold',
+        fontSize: 18,
+        fontWeight: '900',
         color: THEME.text,
+        marginBottom: 6,
+    },
+    plateBadge: {
+        backgroundColor: '#F3F4F6',
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 8,
+        alignSelf: 'flex-start',
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
     },
     carPlate: {
-        fontSize: 14,
-        color: THEME.textLight,
-        marginTop: 2,
+        fontSize: 12,
+        color: THEME.textMuted,
+        fontWeight: 'bold',
         textTransform: 'uppercase',
+        letterSpacing: 1,
+    },
+    deleteButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     addButton: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: THEME.primary,
-        padding: 18,
-        borderRadius: 12,
-        marginTop: 10,
+        padding: 16,
+        borderRadius: 16,
+        marginTop: 20,
         shadowColor: THEME.primary,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 8,
         elevation: 4,
+        gap: 8,
     },
     addButtonText: {
         color: 'white',
-        fontWeight: 'bold',
+        fontWeight: '900',
         fontSize: 16,
-        marginLeft: 8,
     },
     // Modal
     modalOverlay: {
         flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.5)',
+        backgroundColor: 'rgba(2, 48, 71, 0.5)',
         justifyContent: 'flex-end',
     },
     modalContent: {
-        backgroundColor: 'white',
-        borderTopLeftRadius: 24,
-        borderTopRightRadius: 24,
+        backgroundColor: THEME.bg,
+        borderTopLeftRadius: 30,
+        borderTopRightRadius: 30,
         padding: 24,
-        paddingBottom: 40,
-        maxHeight: '85%',
+        paddingBottom: Platform.OS === 'ios' ? 40 : 24,
+        maxHeight: '90%',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -5 },
+        shadowOpacity: 0.1,
+        shadowRadius: 10,
+        elevation: 10,
     },
     modalHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 20,
+        marginBottom: 24,
     },
     modalTitle: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        color: THEME.text,
+        fontSize: 22,
+        fontWeight: '900',
+        color: THEME.secondary,
+    },
+    closeBtn: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: THEME.card,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: THEME.border,
     },
     label: {
         fontSize: 14,
-        fontWeight: '600',
+        fontWeight: 'bold',
         color: THEME.text,
         marginBottom: 8,
-        marginTop: 12,
+        marginLeft: 4,
     },
-    pickerContainer: {
-        backgroundColor: '#F9FAFB',
+    chipScroll: {
+        marginHorizontal: -24, // bleed to edges of modal
+        marginBottom: 24,
+    },
+    chipScrollContainer: {
+        paddingHorizontal: 24,
+        gap: 12,
+    },
+    chip: {
+        paddingHorizontal: 20,
+        paddingVertical: 12,
+        backgroundColor: THEME.card,
+        borderRadius: 20,
         borderWidth: 1,
-        borderColor: '#E5E7EB',
-        borderRadius: 12,
-        marginBottom: 12,
-        overflow: 'hidden',
+        borderColor: THEME.border,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 5,
+        elevation: 2,
     },
-    picker: {
-        height: 50,
+    activeChip: {
+        backgroundColor: THEME.primary,
+        borderColor: THEME.primary,
+        shadowColor: THEME.primary,
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 4,
     },
-    input: {
-        backgroundColor: '#F9FAFB',
+    chipText: {
+        fontSize: 15,
+        fontWeight: 'bold',
+        color: THEME.textMuted,
+    },
+    activeChipText: {
+        color: 'white',
+    },
+    modelsGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 12,
+        marginBottom: 20,
+    },
+    modelChip: {
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        backgroundColor: THEME.card,
+        borderRadius: 14,
         borderWidth: 1,
-        borderColor: '#E5E7EB',
-        borderRadius: 12,
+        borderColor: THEME.border,
+    },
+    activeModelChip: {
+        backgroundColor: THEME.secondary,
+        borderColor: THEME.secondary,
+        shadowColor: THEME.secondary,
+        shadowOpacity: 0.2,
+        shadowRadius: 5,
+        elevation: 3,
+    },
+    modelChipText: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: THEME.text,
+    },
+    disabledModelBox: {
+        backgroundColor: THEME.bg,
+        borderWidth: 2,
+        borderColor: THEME.border,
+        borderStyle: 'dashed',
+        borderRadius: 16,
+        padding: 30,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 20,
+        gap: 10,
+    },
+    disabledModelText: {
+        color: '#9CA3AF',
+        fontSize: 14,
+        fontWeight: '600',
+    },
+    infoBox: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(33, 158, 188, 0.05)',
         padding: 16,
-        fontSize: 16,
-        marginBottom: 12,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: 'rgba(33, 158, 188, 0.2)',
+        marginTop: 10,
+        gap: 10,
+    },
+    infoText: {
+        flex: 1,
+        color: THEME.primary,
+        fontSize: 13,
+        lineHeight: 18,
     },
     saveButton: {
+        flexDirection: 'row',
         backgroundColor: THEME.primary,
         padding: 18,
-        borderRadius: 12,
+        borderRadius: 16,
+        justifyContent: 'center',
         alignItems: 'center',
-        marginTop: 20,
+        marginTop: 30,
+        shadowColor: THEME.primary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 4,
+        gap: 8,
     },
     saveButtonText: {
         color: 'white',
-        fontWeight: 'bold',
+        fontWeight: '900',
         fontSize: 16,
     }
 });

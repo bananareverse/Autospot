@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { getUserVehicles } from '@/lib/vehicles';
 import { scheduleAppointment } from '@/lib/appointments';
 import { LinearGradient } from 'expo-linear-gradient';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 
 const { width } = Dimensions.get('window');
 
@@ -109,8 +109,19 @@ export default function ScheduleAppointmentScreen() {
     }, [selectedWorkshopId]);
 
     const handleDateChange = (event: any, selectedDate?: Date) => {
-        if (Platform.OS === 'android') setShowDatePicker(false);
-        if (selectedDate) setDate(selectedDate);
+        // En la nueva arquitectura de React Native, desmontar al instante crashea Android ("dismiss of undefined").
+        if (Platform.OS === 'android') {
+            setTimeout(() => {
+                setShowDatePicker(false);
+            }, 300);
+        }
+        
+        if (event.type === 'dismissed') {
+            return;
+        }
+        if (selectedDate) {
+            setDate(selectedDate);
+        }
     };
 
     async function handleSchedule() {
@@ -267,18 +278,43 @@ export default function ScheduleAppointmentScreen() {
                         
                         <View style={styles.dateContainer}>
                             {Platform.OS === 'android' && (
-                                <TouchableOpacity style={styles.androidDateBtn} onPress={() => setShowDatePicker(true)}>
+                                <TouchableOpacity 
+                                    style={styles.androidDateBtn} 
+                                    onPress={() => {
+                                        DateTimePickerAndroid.open({
+                                            value: date,
+                                            mode: 'date',
+                                            minimumDate: new Date(),
+                                            onChange: (event, selectedDate) => {
+                                                if (event.type === 'set' && selectedDate) {
+                                                    setDate(selectedDate);
+                                                    DateTimePickerAndroid.open({
+                                                        value: selectedDate,
+                                                        mode: 'time',
+                                                        onChange: (e, selectedTime) => {
+                                                            if (e.type === 'set' && selectedTime) {
+                                                                setDate(selectedTime);
+                                                            }
+                                                        }
+                                                    });
+                                                }
+                                            }
+                                        });
+                                    }}
+                                >
                                     <Text style={styles.dateText}>{date.toLocaleString([], { dateStyle: 'long', timeStyle: 'short' })}</Text>
                                     <Ionicons name="calendar" size={20} color={THEME.primary} />
                                 </TouchableOpacity>
                             )}
                             
-                            {(showDatePicker || Platform.OS === 'ios') && (
+                            {Platform.OS === 'ios' && (
                                 <DateTimePicker
                                     value={date}
                                     mode="datetime"
-                                    display={Platform.OS === 'ios' ? 'inline' : 'default'}
-                                    onChange={handleDateChange}
+                                    display="inline"
+                                    onChange={(event, selectedDate) => {
+                                        if (selectedDate) setDate(selectedDate);
+                                    }}
                                     minimumDate={new Date()}
                                     themeVariant="light"
                                     accentColor={THEME.primary}

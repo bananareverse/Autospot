@@ -78,6 +78,12 @@ export default function AppointmentsScreen() {
 
             <View style={styles.header}>
                 <Text style={styles.title}>Citas</Text>
+                <TouchableOpacity 
+                    style={styles.headerAddButton} 
+                    onPress={() => router.push('/schedule-appointment')}
+                >
+                    <Ionicons name="add" size={26} color="white" />
+                </TouchableOpacity>
             </View>
 
             <View style={styles.tabsContainer}>
@@ -158,20 +164,24 @@ export default function AppointmentsScreen() {
                                     </View>
 
                                     {/* Timeline Visual (The Cool Part) */}
-                                    <View style={styles.timelineContainer}>
-                                        <TimelineDot label="Agendado" active={true} />
-                                        <View style={[styles.timelineLine, { backgroundColor: apt.status !== 'scheduled' ? THEME.primary : '#E5E7EB' }]} />
-                                        <TimelineDot label="Taller" active={apt.status !== 'scheduled' && apt.status !== 'confirmed'} />
-                                        <View style={[styles.timelineLine, { backgroundColor: apt.status === 'completed' ? THEME.primary : '#E5E7EB' }]} />
-                                        <TimelineDot label="Listo" active={apt.status === 'completed'} />
-                                    </View>
+                                    {apt.status === 'cancelled' ? (
+                                        <View style={[styles.timelineContainer, { flexDirection: 'row', justifyContent: 'center', backgroundColor: '#FEE2E2', padding: 12, borderRadius: 12 }]}>
+                                            <Ionicons name="close-circle" size={20} color={THEME.status.cancelled} style={{ marginRight: 8 }} />
+                                            <Text style={{ color: THEME.status.cancelled, fontWeight: '700' }}>Cita Cancelada</Text>
+                                        </View>
+                                    ) : (
+                                        <View style={styles.timelineContainer}>
+                                            <TimelineDot label="Agendado" active={true} />
+                                            <View style={[styles.timelineLine, { backgroundColor: apt.status === 'confirmed' || apt.status === 'completed' ? THEME.primary : '#E5E7EB' }]} />
+                                            <TimelineDot label="Aceptado" active={apt.status === 'confirmed' || apt.status === 'completed'} />
+                                            <View style={[styles.timelineLine, { backgroundColor: apt.status === 'completed' ? THEME.primary : '#E5E7EB' }]} />
+                                            <TimelineDot label="Listo" active={apt.status === 'completed'} />
+                                        </View>
+                                    )}
                                 </View>
                             </TouchableOpacity>
                         ))}
 
-                        <TouchableOpacity style={styles.fab} onPress={() => router.push('/schedule-appointment')}>
-                            <Ionicons name="add" size={30} color="white" />
-                        </TouchableOpacity>
                     </View>
                 )}
             </ScrollView>
@@ -210,8 +220,24 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     header: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
         paddingHorizontal: 20,
         marginBottom: 20,
+    },
+    headerAddButton: {
+        backgroundColor: THEME.primary,
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        justifyContent: 'center',
+        alignItems: 'center',
+        elevation: 4,
+        shadowColor: THEME.primary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
     },
     title: {
         fontSize: 34,
@@ -409,21 +435,5 @@ const styles = StyleSheet.create({
     activeDotLabel: {
         color: THEME.primary,
         fontWeight: 'bold',
-    },
-    fab: {
-        position: 'absolute',
-        bottom: 20, // Relative to the list view or could be fixed screen
-        right: 0,
-        backgroundColor: THEME.primary,
-        width: 60,
-        height: 60,
-        borderRadius: 30,
-        justifyContent: 'center',
-        alignItems: 'center',
-        elevation: 5,
-        shadowColor: THEME.primary,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
     }
 });

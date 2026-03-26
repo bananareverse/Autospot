@@ -75,10 +75,20 @@ export async function addVehicle(vehicle: Omit<Vehicle, 'id'>) {
 
     const { data, error } = await supabase
         .from('vehicles')
-        .insert([{ ...vehicle, client_id: user.id }])
+        .insert([{ ...vehicle, client_id: client!.id }])
         .select()
         .single();
 
     if (error) throw error;
     return data;
+}
+
+export async function deleteVehicle(vehicleId: string) {
+    const { error } = await supabase
+        .from('vehicles')
+        .delete()
+        .eq('id', vehicleId);
+    
+    if (error) throw error;
+    return true;
 }

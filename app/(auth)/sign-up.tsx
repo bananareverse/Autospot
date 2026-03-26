@@ -377,14 +377,11 @@ export default function SignUpScreen() {
                                 </TouchableOpacity>
                             )}
                             <TouchableOpacity 
-                                style={styles.nextBtn} 
+                                style={[styles.nextBtn, { backgroundColor: THEME.primary }]} 
                                 onPress={handleNext}
                                 disabled={loading}
                             >
-                                <LinearGradient
-                                    colors={[THEME.primary, '#1e8fb5']}
-                                    style={styles.gradientBtn}
-                                >
+                                <View style={styles.solidBtn}>
                                     {loading ? (
                                         <ActivityIndicator color="white" />
                                     ) : (
@@ -395,7 +392,7 @@ export default function SignUpScreen() {
                                             <Ionicons name="arrow-forward" size={18} color="white" />
                                         </>
                                     )}
-                                </LinearGradient>
+                                </View>
                             </TouchableOpacity>
                         </View>
 
@@ -591,7 +588,7 @@ const styles = StyleSheet.create({
         borderRadius: 15,
         overflow: 'hidden',
     },
-    gradientBtn: {
+    solidBtn: {
         flex: 1,
         flexDirection: 'row',
         alignItems: 'center',

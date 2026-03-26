@@ -43,10 +43,18 @@ export default function TabLayout() {
         name="appointments"
         options={{
           title: 'Citas',
+          href: isWorkshop ? null : undefined,
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="calendar" color={color} />,
         }}
       />
-    
+      <Tabs.Screen
+        name="workshop-agenda"
+        options={{
+          title: 'Agenda',
+          href: isWorkshop ? undefined : null,
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="calendar" color={color} />,
+        }}
+      />
       <Tabs.Screen
         name="MapScreen"
         options={{
@@ -58,18 +66,18 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="workshop-admin"
+        options={{
+          title: 'Servicios',
+          href: isWorkshop ? undefined : null,
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="wrench.and.screwdriver.fill" color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="profile"
         options={{
           title: 'Perfil',
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="person.crop.circle" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="workshop-admin"
-        options={{
-          title: 'Mi Taller',
-          href: isWorkshop ? undefined : null,
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="wrench.and.screwdriver.fill" color={color} />,
         }}
       />
     </Tabs>

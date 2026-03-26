@@ -1,9 +1,6 @@
 import { supabase } from "@/lib/supabase";
 import type { RootStackParamList } from "@/types/navigation";
-import {
-  NavigationProp,
-  useNavigation
-} from "@react-navigation/native";
+import { NavigationProp, useNavigation } from "@react-navigation/native";
 import * as Location from "expo-location";
 import { useLocalSearchParams } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
@@ -17,6 +14,19 @@ import {
 } from "react-native";
 import MapView, { Marker } from "react-native-maps";
 import MapViewDirections from "react-native-maps-directions";
+import { Ionicons } from '@expo/vector-icons';
+
+const THEME = {
+  primary: '#219ebc',    
+  secondary: '#023047',  
+  accent: '#fb8500',     
+  bg: '#FFFFFF',
+  card: '#F9FAFB',
+  text: '#1F2937',
+  textMuted: '#6B7280',
+  border: '#E5E7EB',
+  success: '#10B981',
+};
 
 interface Workshop {
   id: string;
@@ -114,13 +124,8 @@ export default function MapScreen() {
     }
   };
 
-  const getDistanceInKm = (
-    lat1: number,
-    lon1: number,
-    lat2: number,
-    lon2: number
-  ) => {
-    const R = 6371; // radio tierra km
+  const getDistanceInKm = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+    const R = 6371; 
     const dLat = (lat2 - lat1) * (Math.PI / 180);
     const dLon = (lon2 - lon1) * (Math.PI / 180);
 
@@ -173,7 +178,7 @@ export default function MapScreen() {
             }}
             apikey="AIzaSyDg8i6hdakgcXJoN9YLBFKPYWWOvaFypvo"
             strokeWidth={4}
-            strokeColor="#219ebc"
+            strokeColor={THEME.primary}
           />
         )}
         {workshops.filter(w => w.latitude != null && w.longitude != null).map((workshop) => (
@@ -185,7 +190,7 @@ export default function MapScreen() {
             }}
             title={workshop.name}
             pinColor={
-              selectedWorkshop?.id === workshop.id ? "#219ebc" : "#EF4444"
+              selectedWorkshop?.id === workshop.id ? THEME.primary : THEME.accent
             }
             onPress={() => {
               setSelectedWorkshop(workshop);
@@ -208,6 +213,8 @@ export default function MapScreen() {
           data={workshops}
           keyExtractor={(item) => item.id}
           horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: 15 }}
           onScrollToIndexFailed={(info) => {
             setTimeout(() => {
               listRef.current?.scrollToIndex({
@@ -216,54 +223,18 @@ export default function MapScreen() {
               });
             }, 300);
           }}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={[
-                styles.card,
-                selectedWorkshop?.id === item.id && styles.selectedCard,
-              ]}
-              onPress={() => {
-                setSelectedWorkshop(item);
-                setRouteActive(false);
-
-                mapRef.current?.animateToRegion({
-                  latitude: item.latitude,
-                  longitude: item.longitude,
-                  latitudeDelta: 0.02,
-                  longitudeDelta: 0.02,
-                });
-              }}
-            >
-              <Text style={styles.name}>{item.name}</Text>
-
-              <Text style={styles.distance}>
-                {item.distance.toFixed(2)} km
-              </Text>
-
-              <Text style={styles.rating}>
-                ⭐ {item.rating} ({item.total_reviews} reseñas)
-              </Text>
-              <View style={{ flexDirection: "row", marginTop: 10, gap: 15 }}>
-              {/* VER PERFIL */}
+          renderItem={({ item }) => {
+            const isSelected = selectedWorkshop?.id === item.id;
+            return (
               <TouchableOpacity
-                onPress={() =>
-                  navigation.navigate("workshop-details" as any, { id: item.id })
-                }
-                style={{
-                  backgroundColor: "#219ebc",
-                  paddingVertical: 6,
-                  paddingHorizontal: 12,
-                  borderRadius: 8,
-                }}
-              >
-                <Text style={{ color: "white" }}>Ver perfil</Text>
-              </TouchableOpacity>
-
-              {/* COMO LLEGAR */}
-              <TouchableOpacity
+                activeOpacity={0.9}
+                style={[
+                  styles.card,
+                  isSelected && styles.selectedCard,
+                ]}
                 onPress={() => {
                   setSelectedWorkshop(item);
-                  setRouteActive(true);
+                  setRouteActive(false);
 
                   mapRef.current?.animateToRegion({
                     latitude: item.latitude,
@@ -272,19 +243,57 @@ export default function MapScreen() {
                     longitudeDelta: 0.02,
                   });
                 }}
-                style={{
-                  backgroundColor: "green",
-                  paddingVertical: 6,
-                  paddingHorizontal: 12,
-                  borderRadius: 8,
-                }}
               >
-                <Text style={{ color: "white" }}>Cómo llegar</Text>
-              </TouchableOpacity>
+                <View style={styles.cardHeader}>
+                  <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
+                  {isSelected && <Ionicons name="checkmark-circle" size={20} color={THEME.primary} />}
+                </View>
 
-            </View>
-            </TouchableOpacity>
-          )}
+                <View style={styles.metaRow}>
+                  <View style={styles.metaBadge}>
+                    <Ionicons name="location" size={14} color={THEME.primary} />
+                    <Text style={styles.metaText}>{item.distance.toFixed(2)} km</Text>
+                  </View>
+                  <View style={styles.metaBadge}>
+                    <Ionicons name="star" size={14} color={THEME.accent} />
+                    <Text style={styles.metaText}>{item.rating ?? 'N/A'} ({item.total_reviews ?? 0})</Text>
+                  </View>
+                </View>
+
+                <View style={styles.buttonRow}>
+                  {/* VER PERFIL */}
+                  <TouchableOpacity
+                    onPress={() =>
+                      navigation.navigate("workshop-details" as any, { id: item.id })
+                    }
+                    style={styles.outlineButton}
+                  >
+                    <Ionicons name="business-outline" size={18} color={THEME.secondary} />
+                    <Text style={styles.outlineButtonText}>Perfil</Text>
+                  </TouchableOpacity>
+
+                  {/* COMO LLEGAR */}
+                  <TouchableOpacity
+                    onPress={() => {
+                      setSelectedWorkshop(item);
+                      setRouteActive(true);
+
+                      mapRef.current?.animateToRegion({
+                        latitude: item.latitude,
+                        longitude: item.longitude,
+                        latitudeDelta: 0.02,
+                        longitudeDelta: 0.02,
+                      });
+                    }}
+                    style={styles.primaryButton}
+                  >
+                    <Ionicons name="navigate-outline" size={18} color="white" />
+                    <Text style={styles.primaryButtonText}>Llegar</Text>
+                  </TouchableOpacity>
+                </View>
+              </TouchableOpacity>
+            );
+          }}
         />
       </View>
     </View>
@@ -298,32 +307,103 @@ const styles = StyleSheet.create({
   map: { flex: 1 },
   listContainer: {
     position: "absolute",
-    bottom: 20,
+    bottom: 30,
+    width: "100%",
   },
   card: {
-    backgroundColor: "white",
-    padding: 15,
-    borderRadius: 10,
+    backgroundColor: THEME.card,
+    padding: 20,
+    borderRadius: 24,
     marginHorizontal: 10,
-    width: width * 0.8,
-    elevation: 3,
+    width: width * 0.85,
+    borderWidth: 1,
+    borderColor: THEME.border,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.1,
+    shadowRadius: 15,
+    elevation: 5,
   },
   selectedCard: {
-    borderColor: "#219ebc",
+    borderColor: THEME.primary,
     borderWidth: 2,
+    backgroundColor: THEME.bg,
+    shadowOpacity: 0.2,
+    elevation: 8,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
   },
   name: {
-    fontWeight: "bold",
-    fontSize: 16,
+    fontWeight: "900",
+    fontSize: 18,
+    color: THEME.secondary,
+    flex: 1,
+    marginRight: 10,
   },
-  distance: {
-    fontSize: 14,
-    marginTop: 4,
-    color: "#555",
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 16,
   },
-  rating: {
+  metaBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: THEME.bg,
+    borderWidth: 1,
+    borderColor: THEME.border,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 12,
+    gap: 6,
+  },
+  metaText: {
+    color: THEME.text,
+    fontSize: 13,
+    fontWeight: 'bold',
+  },
+  buttonRow: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  outlineButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: THEME.secondary,
+    paddingVertical: 10,
+    borderRadius: 14,
+    gap: 6,
+  },
+  outlineButtonText: {
+    color: THEME.secondary,
+    fontWeight: '800',
     fontSize: 14,
-    marginTop: 4,
-    color: "#333",
+  },
+  primaryButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: THEME.primary,
+    paddingVertical: 10,
+    borderRadius: 14,
+    gap: 6,
+    shadowColor: THEME.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  primaryButtonText: {
+    color: 'white',
+    fontWeight: '900',
+    fontSize: 14,
   },
 });
