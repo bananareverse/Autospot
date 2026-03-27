@@ -1,20 +1,20 @@
-import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, Alert, ActivityIndicator, Platform, Dimensions } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
-import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '@/lib/supabase';
-import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
 import { useAuth } from '@/ctx/AuthContext';
+import { supabase } from '@/lib/supabase';
+import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import { useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, Dimensions, Image, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const { width } = Dimensions.get('window');
 
 const THEME = {
-    primary: '#219ebc',    
-    secondary: '#023047',  
-    accent: '#fb8500',     
+    primary: '#219ebc',
+    secondary: '#023047',
+    accent: '#fb8500',
     bg: '#FFFFFF',
     card: '#F9FAFB',
     text: '#1F2937',
@@ -30,7 +30,7 @@ export default function ProfileScreen() {
     const [loading, setLoading] = useState(true);
     const [workshopServices, setWorkshopServices] = useState<any[]>([]);
     const [workshopData, setWorkshopData] = useState<any>(null);
-    
+
     // States for Workshop Hours
     const [showOpeningPicker, setShowOpeningPicker] = useState(false);
     const [showClosingPicker, setShowClosingPicker] = useState(false);
@@ -49,27 +49,27 @@ export default function ProfileScreen() {
                 base64: true,
             });
             if (result.canceled) return;
-            
+
             const imagen = result.assets[0];
             if (!imagen.base64) return;
-            
+
             const formData = new FormData();
             formData.append('file', {
-                uri: imagen.uri, 
+                uri: imagen.uri,
                 name: `avatar_${profile.email}.jpg`,
                 type: 'image/jpeg',
             } as any);
 
-            Alert.alert("Subiendo...","Tu foto se esta guardando");
+            Alert.alert("Subiendo...", "Tu foto se esta guardando");
             const { data, error } = await supabase.storage.from('Avatar')
                 .upload(`avatar_${profile.email}.jpg`, formData, {
                     upsert: true,
                 });
-            if (error){
+            if (error) {
                 Alert.alert("Error", error.message);
                 return;
             }
-            
+
             const { data: publicUrlData } = supabase.storage
                 .from('Avatar')
                 .getPublicUrl(`avatar_${profile.email}.jpg`);
@@ -101,15 +101,15 @@ export default function ProfileScreen() {
                         .select('*, workshop_staff!inner(*)')
                         .eq('workshop_staff.user_id', user.id)
                         .single();
-                    
+
                     if (workshop) {
-                         setWorkshopData(workshop);
-                         const { data: services } = await supabase
-                             .from('workshop_services')
-                             .select('custom_price, service:service_catalog(name)')
-                             .eq('workshop_id', workshop.id)
-                             .limit(3);
-                         setWorkshopServices(services || []);
+                        setWorkshopData(workshop);
+                        const { data: services } = await supabase
+                            .from('workshop_services')
+                            .select('custom_price, service:service_catalog(name)')
+                            .eq('workshop_id', workshop.id)
+                            .limit(3);
+                        setWorkshopServices(services || []);
                     }
                 }
             }
@@ -127,7 +127,7 @@ export default function ProfileScreen() {
 
     const handleSaveHours = async (type: 'open' | 'close', selectedTime: Date) => {
         if (!workshopData) return;
-        
+
         setUpdatingHours(true);
         const timeStr = selectedTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
         const field = type === 'open' ? 'opening_time' : 'closing_time';
@@ -175,7 +175,7 @@ export default function ProfileScreen() {
             />
 
             <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-                
+
                 <View style={styles.header}>
                     <Text style={styles.title}>Mi Perfil</Text>
                 </View>
@@ -202,7 +202,7 @@ export default function ProfileScreen() {
                 {/* Options List */}
                 <View style={styles.actionsContainer}>
                     <Text style={styles.sectionTitle}>Cuenta</Text>
-                    
+
                     <View style={styles.linksGroup}>
                         {!isWorkshop && (
                             <LinkRow
@@ -213,7 +213,7 @@ export default function ProfileScreen() {
                                 isFirst
                             />
                         )}
-                        
+
                         <LinkRow
                             icon={isWorkshop ? "business" : "person"}
                             title={isWorkshop ? "Administrar Taller" : "Mi Información"}
@@ -228,7 +228,7 @@ export default function ProfileScreen() {
                         <>
                             <View style={styles.section}>
                                 <Text style={styles.sectionTitle}>Tus Servicios Destacados</Text>
-                                
+
                                 <View style={styles.servicesListCard}>
                                     {workshopServices.length === 0 ? (
                                         <View style={styles.emptyServices}>
@@ -248,8 +248,8 @@ export default function ProfileScreen() {
                                             </View>
                                         ))
                                     )}
-                                    
-                                    <TouchableOpacity 
+
+                                    <TouchableOpacity
                                         style={styles.manageButton}
                                         onPress={() => router.push('/(tabs)/agenda')}
                                     >
@@ -264,9 +264,9 @@ export default function ProfileScreen() {
                                     <Text style={styles.sectionTitle}>Horario de Atención</Text>
                                     {updatingHours && <ActivityIndicator size="small" color={THEME.primary} />}
                                 </View>
-                                
+
                                 <View style={styles.hoursCard}>
-                                    <TouchableOpacity 
+                                    <TouchableOpacity
                                         style={styles.hourAction}
                                         onPress={() => {
                                             const [h, m] = (workshopData?.opening_time || '09:00').split(':');
@@ -285,7 +285,7 @@ export default function ProfileScreen() {
 
                                     <View style={styles.hourDivider} />
 
-                                    <TouchableOpacity 
+                                    <TouchableOpacity
                                         style={styles.hourAction}
                                         onPress={() => {
                                             const [h, m] = (workshopData?.closing_time || '18:00').split(':');
@@ -358,13 +358,13 @@ export default function ProfileScreen() {
 
 function LinkRow({ icon, title, subtitle, onPress, isFirst, isLast }: { icon: any, title: string, subtitle: string, onPress?: () => void, isFirst?: boolean, isLast?: boolean }) {
     return (
-        <TouchableOpacity 
+        <TouchableOpacity
             style={[
-                styles.linkRow, 
-                isFirst && styles.linkRowFirst, 
+                styles.linkRow,
+                isFirst && styles.linkRowFirst,
                 isLast && styles.linkRowLast,
                 !isLast && styles.linkRowBorder
-            ]} 
+            ]}
             onPress={onPress}
             activeOpacity={0.7}
         >

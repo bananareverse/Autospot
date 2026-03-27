@@ -2,587 +2,357 @@ import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { 
+    ActivityIndicator, 
+    Alert, 
+    ScrollView, 
+    StyleSheet, 
+    Text, 
+    TextInput, 
+    TouchableOpacity, 
+    View, 
+    Linking,
+    Dimensions,
+    Platform,
+    RefreshControl
+} from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { StatusBar } from 'expo-status-bar';
+
+const { width } = Dimensions.get('window');
 
 const THEME = {
-  bg: '#F9FAFB',
-  text: '#111827',
-  textSoft: '#6B7280',
-  primary: '#219ebc',
-  secondary: '#023047',
-  success: '#10B981',
-  danger: '#EF4444',
-  border: '#E5E7EB',
+    primary: '#219ebc',
+    secondary: '#023047',
+    accent: '#fb8500',
+    white: '#FFFFFF',
+    bg: '#F8FAFC',
+    border: '#E2E8F0',
+    text: '#1E293B',
+    textMuted: '#64748B',
+    success: '#10B981',
+    warning: '#F59E0B',
+    danger: '#EF4444',
+    neutral: '#64748B',
 };
 
-const STATUS_STEPS = [
-  { key: 'scheduled', label: 'Programada' },
-  { key: 'confirmed', label: 'Confirmada' },
-  { key: 'in_progress', label: 'En proceso' },
-  { key: 'ready', label: 'Listo para entrega' },
-  { key: 'completed', label: 'Completado' },
-];
-
-function statusLabel(status: string) {
-  switch (status) {
-    case 'scheduled':
-      return 'Programada';
-    case 'confirmed':
-      return 'Confirmada';
-    case 'in_progress':
-      return 'En proceso';
-    case 'on_hold':
-      return 'En revisión';
-    case 'ready':
-      return 'Listo para entrega';
-    case 'completed':
-      return 'Completado';
-    case 'cancelled':
-      return 'Cancelada';
-    default:
-      return status;
-  }
-}
-
-function statusStyle(status: string) {
-  switch (status) {
-    case 'scheduled': return { bg: '#FEF3C7', color: '#92400E' };
-    case 'confirmed': return { bg: '#DBEAFE', color: '#1E40AF' };
-    case 'in_progress': return { bg: '#E0E7FF', color: '#312E81' };
-    case 'on_hold': return { bg: '#FEE2E2', color: '#B91C1C' };
-    case 'ready': return { bg: '#D1FAE5', color: '#065F46' };
-    case 'completed': return { bg: '#A7F3D0', color: '#065F46' };
-    case 'cancelled': return { bg: '#FECACA', color: '#991B1B' };
-    default: return { bg: '#F3F4F6', color: '#6B7280' };
-  }
-}
-
-function formatDate(dateString: string) {
-  if (!dateString) return 'Fecha no disponible';
-  try {
-    const d = new Date(dateString);
-    if (isNaN(d.getTime())) return 'Fecha inválida';
-    return d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-  } catch (e) {
-    return 'Error en fecha';
-  }
-}
-
-function formatTime(dateString: string) {
-  if (!dateString) return 'Hora no disponible';
-  try {
-    const d = new Date(dateString);
-    if (isNaN(d.getTime())) return 'Hora inválida';
-    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  } catch (e) {
-    return 'Error en hora';
-  }
-}
+const STATUS_CONFIG: Record<string, { label: string, color: string, icon: any, step: number }> = {
+    scheduled: { label: 'En Espera', color: '#1E293B', icon: 'time-outline', step: 0 },
+    on_hold: { label: 'En Revisión', color: '#FB923C', icon: 'alert-circle-outline', step: 1 },
+    in_progress: { label: 'En Proceso', color: '#3B82F6', icon: 'hammer-outline', step: 2 },
+    ready: { label: 'Lista', color: '#10B981', icon: 'star-outline', step: 3 },
+    completed: { label: 'Completada', color: '#64748B', icon: 'checkmark-done-circle-outline', step: 4 },
+    cancelled: { label: 'Cancelada', color: '#EF4444', icon: 'close-circle-outline', step: -1 },
+};
 
 export default function WorkshopAppointmentDetails() {
-  const params = useLocalSearchParams();
-  const appointmentId = Array.isArray(params.appointmentId) ? params.appointmentId[0] : params.appointmentId;
-  const router = useRouter();
+    const params = useLocalSearchParams();
+    const appointmentId = Array.isArray(params.appointmentId) ? params.appointmentId[0] : params.appointmentId;
+    const router = useRouter();
 
-  const [appointment, setAppointment] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [selectedStatus, setSelectedStatus] = useState<string>('');
-  const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
-  const [holdReason, setHoldReason] = useState('');
-  const [cancelMode, setCancelMode] = useState(false);
-  const [cancelReason, setCancelReason] = useState('');
+    const [appointment, setAppointment] = useState<any>(null);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [notesText, setNotesText] = useState('');
 
-  useEffect(() => {
-    loadAppointment();
-  }, []);
+    useEffect(() => {
+        loadAppointment();
+    }, [appointmentId]);
 
-  const loadAppointment = async () => {
-    setLoading(true);
-    try {
-      if (!appointmentId) {
-        setError('No se encontró la cita');
-        setLoading(false);
-        return;
-      }
+    const loadAppointment = async () => {
+        if (!appointmentId) return;
+        setLoading(true);
+        try {
+            const { data, error } = await supabase
+                .from('appointments')
+                .select(`
+                    *,
+                    client:clients(first_name, last_name, email, phone),
+                    vehicle:vehicles(make, model, license_plate, year, color),
+                    service:service_catalog(name, description, estimated_price)
+                `)
+                .eq('id', appointmentId)
+                .single();
 
-      const { data, error: queryError } = await supabase
-        .from('appointments')
-        .select(`
-          *,
-          client:clients(first_name,last_name,email,phone),
-          vehicle:vehicles(make,model,license_plate,year,color),
-          service:service_catalog(name,description,estimated_price)
-        `)
-        .eq('id', appointmentId)
-        .single();
-
-      if (queryError) {
-        console.error("SUPABASE ERROR WAD:", queryError);
-        setError('No se pudo cargar la cita');
-      } else {
-        let finalPrice = data.service?.estimated_price;
-        if (data.workshop_id && data.service_id) {
-            const { data: ws } = await supabase
-                .from('workshop_services')
-                .select('custom_price')
-                .eq('workshop_id', data.workshop_id)
-                .eq('service_id', data.service_id)
-                .maybeSingle();
-            if (ws?.custom_price) {
-                finalPrice = ws.custom_price;
+            if (data) {
+                let finalPrice = data.service?.estimated_price;
+                const { data: ws } = await supabase
+                    .from('workshop_services')
+                    .select('custom_price')
+                    .eq('workshop_id', data.workshop_id)
+                    .eq('service_id', data.service_id)
+                    .maybeSingle();
+                if (ws?.custom_price) finalPrice = ws.custom_price;
+                
+                data.final_price = finalPrice;
+                setAppointment(data);
+                setNotesText(data.notes || '');
             }
+        } catch (e) {
+            console.error("Load appointment error:", e);
+        } finally {
+            setLoading(false);
         }
-        data.final_price = finalPrice;
-        setAppointment(data);
-        setSelectedStatus(data?.status || '');
-      }
-    } catch (e) {
-      console.error("TRYCATCH ERROR WAD:", e);
-      setError('Error al cargar la cita');
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
 
-  const updateStatus = async (newStatus: string, reason?: string) => {
-    if (!appointment) return;
-    setSaving(true);
-    try {
-      const payload: any = { status: newStatus };
-      if (newStatus === 'on_hold') {
-        payload.notes = reason || 'En revisión';
-      }
+    const updateStatus = async (newStatus: string) => {
+        if (!appointment) return;
+        setSaving(true);
+        try {
+            const { error } = await supabase
+                .from('appointments')
+                .update({ status: newStatus, notes: notesText })
+                .eq('id', appointment.id);
+            if (error) throw error;
+            setAppointment({ ...appointment, status: newStatus, notes: notesText });
+            Alert.alert("¡Éxito!", `Estado actualizado a: ${STATUS_CONFIG[newStatus].label}`);
+        } catch (e: any) {
+            Alert.alert("Error", e.message || "No se pudo actualizar la cita");
+        } finally {
+            setSaving(false);
+        }
+    };
 
-      const { error } = await supabase
-        .from('appointments')
-        .update(payload)
-        .eq('id', appointment.id);
-      if (error) throw error;
+    const callClient = () => {
+        if (appointment?.client?.phone) {
+            Linking.openURL(`tel:${appointment.client.phone}`);
+        }
+    };
 
-      setAppointment({ ...appointment, status: newStatus, notes: payload.notes ?? appointment.notes });
-      setSelectedStatus(newStatus);
-      if (newStatus === 'on_hold') setHoldReason('');
-      if (newStatus === 'cancelled') {
-        setCancelMode(false);
-        setCancelReason('');
-      }
-      Alert.alert('Éxito', `Estado actualizado: ${statusLabel(newStatus)}`);
-    } catch (e: any) {
-      Alert.alert('Error', e.message || 'No se pudo actualizar el estado.');
-    } finally {
-      setSaving(false);
-      setStatusDropdownOpen(false);
-    }
-  };
+    const currentStatus = STATUS_CONFIG[appointment?.status] || STATUS_CONFIG.scheduled;
 
-  if (loading) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color={THEME.primary} />
-      </View>
+    if (loading && !appointment) return (
+        <View style={styles.center}><ActivityIndicator size="large" color={THEME.primary} /></View>
     );
-  }
 
-  if (error || !appointment) {
+    if (!appointment) return (
+        <View style={styles.center}><Text>Cita no encontrada</Text></View>
+    );
+
     return (
-      <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>{error || 'Cita no encontrada'}</Text>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <Text style={styles.backBtnText}>Volver</Text>
+        <View style={styles.container}>
+            <StatusBar style="light" />
+            <Stack.Screen options={{ headerShown: false }} />
+
+            <ScrollView 
+                contentContainerStyle={styles.scrollContent} 
+                showsVerticalScrollIndicator={false}
+                refreshControl={
+                    <RefreshControl refreshing={loading} onRefresh={loadAppointment} tintColor={THEME.primary} colors={[THEME.primary]} />
+                }
+            >
+                {/* Header Section */}
+                <LinearGradient colors={[THEME.secondary, THEME.primary]} style={styles.header}>
+                    <View style={styles.headerTop}>
+                        <TouchableOpacity style={styles.backButtonCompact} onPress={() => router.back()}>
+                            <Ionicons name="arrow-back" size={24} color="white" />
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                            style={styles.chatButton} 
+                            onPress={() => router.push({ pathname: '/chat/[appointmentId]', params: { appointmentId: appointment.id } })}
+                        >
+                            <Ionicons name="chatbubbles" size={20} color="white" />
+                            <Text style={styles.chatButtonText}>Chat</Text>
+                        </TouchableOpacity>
+                    </View>
+                    
+                    <View style={styles.headerContent}>
+                        <View style={[styles.statusTag, { backgroundColor: currentStatus.color }]}>
+                            <Ionicons name={currentStatus.icon} size={14} color="white" />
+                            <Text style={styles.statusTagText}>{currentStatus.label.toUpperCase()}</Text>
+                        </View>
+                        <Text style={styles.headerTitle}>Gestión de Cita</Text>
+                        <Text style={styles.headerSubtitle}>
+                            {new Date(appointment.scheduled_at).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
+                            {" • "}
+                            {new Date(appointment.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </Text>
+                    </View>
+                </LinearGradient>
+
+                <View style={styles.body}>
+                    {/* Controles Unificados (BASIC visually as requested) */}
+                    <View style={styles.controlsSection}>
+                        <Text style={styles.sectionTitle}>ACTUALIZAR ESTADO</Text>
+                        <View style={styles.controlsGrid}>
+                            <QuickButton label="En Espera" icon="time" color={THEME.secondary} active={appointment.status === 'scheduled'} onPress={() => updateStatus('scheduled')} />
+                            <QuickButton label="En Revisión" icon="alert-circle" color={THEME.secondary} active={appointment.status === 'on_hold'} onPress={() => updateStatus('on_hold')} />
+                            <QuickButton label="En Proceso" icon="hammer" color={THEME.secondary} active={appointment.status === 'in_progress'} onPress={() => updateStatus('in_progress')} />
+                            <QuickButton label="Lista" icon="star" color={THEME.secondary} active={appointment.status === 'ready'} onPress={() => updateStatus('ready')} />
+                            <QuickButton label="Completada" icon="checkmark-done" color={THEME.secondary} active={appointment.status === 'completed'} onPress={() => updateStatus('completed')} />
+                        </View>
+                    </View>
+
+                    {/* Progress History - 5 steps for Consistency */}
+                    <View style={styles.sectionCard}>
+                        <View style={styles.progressTracker}>
+                             {['scheduled', 'on_hold', 'in_progress', 'ready', 'completed'].map((stepKey, idx) => {
+                                const stepConf = STATUS_CONFIG[stepKey];
+                                let isActive = false;
+                                // Se basa en la configuración del step o una lógica de secuencia
+                                const currentStepIdx = currentStatus.step;
+                                isActive = currentStepIdx >= idx || appointment.status === 'completed';
+                                
+                                return (
+                                    <View key={stepKey} style={styles.trackerItem}>
+                                        <View style={[styles.trackerDot, isActive && { backgroundColor: THEME.primary }]}>
+                                            {isActive ? <Ionicons name="checkmark" size={10} color="white" /> : <View style={styles.innerDot} />}
+                                        </View>
+                                        <Text style={[styles.trackerLabel, isActive && { color: THEME.primary, fontWeight: '900' }]}>{stepConf.label}</Text>
+                                        {idx < 4 && <View style={[styles.trackerLine, isActive && { backgroundColor: THEME.primary }]} />}
+                                    </View>
+                                );
+                             })}
+                        </View>
+                    </View>
+
+                    {/* Information Cards */}
+                    <View style={styles.infoGrid}>
+                        {/* Client Info */}
+                        <View style={styles.infoCard}>
+                            <View style={styles.cardHeader}>
+                                <Ionicons name="person" size={16} color={THEME.primary} />
+                                <Text style={styles.cardTitle}>CLIENTE</Text>
+                            </View>
+                            <Text style={styles.clientName} numberOfLines={1}>{appointment.client?.first_name} {appointment.client?.last_name}</Text>
+                            <TouchableOpacity style={styles.callButton} onPress={callClient}>
+                                <Ionicons name="phone-portrait" size={14} color="white" />
+                                <Text style={styles.callButtonText}>{appointment.client?.phone || 'Llamar'}</Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        {/* Vehicle Info */}
+                        <View style={styles.infoCard}>
+                            <View style={styles.cardHeader}>
+                                <Ionicons name="car" size={16} color={THEME.primary} />
+                                <Text style={styles.cardTitle}>VEHÍCULO</Text>
+                            </View>
+                            <Text style={styles.vehicleName} numberOfLines={1}>{appointment.vehicle?.make} {appointment.vehicle?.model}</Text>
+                            <View style={styles.plateTag}>
+                                <Text style={styles.plateText}>{appointment.vehicle?.license_plate}</Text>
+                            </View>
+                        </View>
+                    </View>
+
+                    {/* Service & Notes */}
+                    <View style={styles.sectionCard}>
+                        <View style={styles.cardHeader}>
+                            <Ionicons name="construct" size={16} color={THEME.primary} />
+                            <Text style={styles.cardTitle}>DETALLES DEL TRABAJO</Text>
+                        </View>
+                        <Text style={styles.serviceName}>{appointment.service?.name}</Text>
+                        <View style={styles.priceRow}>
+                             <Text style={styles.priceLabel}>Presupuesto:</Text>
+                             <Text style={styles.priceValue}>${appointment.final_price?.toLocaleString()}</Text>
+                        </View>
+
+                        <View style={styles.divider} />
+
+                        <Text style={[styles.cardTitle, { marginTop: 10, marginBottom: 8 }]}>NOTAS / DIAGNÓSTICO</Text>
+                        <TextInput
+                            style={styles.notesInput}
+                            placeholder="Desarrolla el detalle del trabajo aquí..."
+                            multiline
+                            value={notesText}
+                            onChangeText={setNotesText}
+                        />
+                        <TouchableOpacity style={styles.saveNotesBtn} onPress={() => updateStatus(appointment.status)}>
+                            <Ionicons name="save-outline" size={16} color="white" />
+                            <Text style={styles.saveNotesBtnText}>Guardar Notas</Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    {/* Danger Zone (Cancelar Cita) */}
+                    <TouchableOpacity 
+                        style={styles.cancelLink} 
+                        onPress={() => {
+                            Alert.alert(
+                                "¿Cancelar Cita?",
+                                "¿Estás seguro que deseas cancelar esta cita?",
+                                [
+                                    { text: "No", style: "cancel" },
+                                    { text: "Sí, cancelar", style: "destructive", onPress: () => updateStatus('cancelled') }
+                                ]
+                            );
+                        }}
+                    >
+                        <Text style={styles.cancelLinkText}>Cancelar Cita Permanente</Text>
+                    </TouchableOpacity>
+                </View>
+            </ScrollView>
+        </View>
+    );
+}
+
+function QuickButton({ label, icon, color, active, onPress }: { label: string, icon: any, color: string, active: boolean, onPress: () => void }) {
+    return (
+        <TouchableOpacity 
+            style={[styles.quickBtn, { backgroundColor: active ? THEME.primary : THEME.secondary, opacity: 1 }]} 
+            onPress={onPress}
+            activeOpacity={0.7}
+        >
+            <Ionicons name={icon} size={18} color="white" />
+            <Text style={styles.quickBtnText}>{label}</Text>
+            {active && <View style={styles.activeIndicator} />}
         </TouchableOpacity>
-      </View>
     );
-  }
-
-  const statusOrder: Record<string, number> = {
-    scheduled: 0,
-    confirmed: 1,
-    in_progress: 2,
-    ready: 3,
-    completed: 4,
-  };
-
-  const currentStep = statusOrder[appointment.status] !== undefined ? statusOrder[appointment.status] : -1;
-  const canCancel = appointment.status !== 'completed' && appointment.status !== 'cancelled';
-
-  const nextStageAction = () => {
-    const st = appointment.status;
-    if (st === 'scheduled') return { label: 'Confirmar', nextStatus: 'confirmed' };
-    if (st === 'confirmed') return { label: 'Iniciar', nextStatus: 'in_progress' };
-    if (st === 'in_progress') return { label: 'Listo para entrega', nextStatus: 'ready' };
-    if (st === 'ready') return { label: 'Completar', nextStatus: 'completed' };
-    return null;
-  };
-
-  const stepFlow = STATUS_STEPS;
-
-  return (
-    <View style={styles.container}>
-      <Stack.Screen options={{
-        title: 'Gestionar Cita',
-      }} />
-
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.statusBadgeCard}>
-          <Text style={[styles.statusBadgeText, { color: statusStyle(appointment.status).color }]}>Estado: {statusLabel(appointment.status)}</Text>
-        </View>
-
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Seguimiento</Text>
-          <View style={styles.flowContainer}>
-            {STATUS_STEPS.map((step, index) => {
-              const completed = index <= currentStep;
-              return (
-                <View key={step.key} style={styles.flowRow}>
-                  <View style={[styles.flowDot, completed ? styles.flowDotActive : null]}>
-                    <Ionicons name={completed ? 'checkmark' : 'ellipse-outline'} size={12} color="white" />
-                  </View>
-                  <Text style={[styles.flowLabel, completed ? styles.flowLabelActive : null]}>{step.label}</Text>
-                  {index < STATUS_STEPS.length - 1 && <View style={[styles.flowLine, completed ? styles.flowLineActive : null]} />}
-                </View>
-              );
-            })}
-          </View>
-        </View>
-
-        <View style={styles.statusSelectContainer}>
-          <Text style={styles.statusSelectLabel}>Cambiar estado</Text>
-
-          <TouchableOpacity
-            style={[styles.statusSelectButton, { borderColor: statusStyle(selectedStatus || appointment.status).color }]}
-            onPress={() => setStatusDropdownOpen(!statusDropdownOpen)}
-            disabled={saving}
-          >
-            <Text style={styles.statusSelectButtonText}>{statusLabel(selectedStatus || appointment.status)}</Text>
-            <Ionicons name={statusDropdownOpen ? 'chevron-up' : 'chevron-down'} size={18} color={statusStyle(selectedStatus || appointment.status).color} />
-          </TouchableOpacity>
-
-          {statusDropdownOpen ? (
-            <View style={styles.statusDropdown}>
-              {['in_progress', 'on_hold', 'ready', 'completed', 'cancelled'].map((statusValue) => (
-                <TouchableOpacity
-                  key={statusValue}
-                  style={styles.statusOption}
-                  onPress={() => {
-                    setSelectedStatus(statusValue);
-                    setStatusDropdownOpen(false);
-                    if (statusValue !== 'on_hold') setHoldReason('');
-                  }}
-                >
-                  <Text style={[styles.statusOptionText, { color: statusStyle(statusValue).color }]}>{statusLabel(statusValue)}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          ) : null}
-
-          {selectedStatus === 'on_hold' && (
-            <View style={styles.holdReasonBox}>
-              <Text style={styles.detailKey}>Motivo de revisión</Text>
-              <TextInput
-                style={styles.holdReasonInput}
-                value={holdReason}
-                onChangeText={setHoldReason}
-                placeholder="Describe la razón..."
-                editable={!saving}
-              />
-            </View>
-          )}
-
-          <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: THEME.secondary, marginTop: 10 }]}
-            onPress={() => {
-              if (selectedStatus === 'on_hold' && !holdReason.trim()) {
-                Alert.alert('Requerido', 'Agrega razón para poner en revisión.');
-                return;
-              }
-              updateStatus(selectedStatus || appointment.status, selectedStatus === 'on_hold' ? holdReason.trim() : undefined);
-            }}
-            disabled={saving || !selectedStatus}
-          >
-            <Ionicons name="save-outline" size={16} color="white" />
-            <Text style={styles.actionButtonText}>Guardar estado</Text>
-          </TouchableOpacity>
-
-          {canCancel && (
-            <View style={{ marginTop: 8 }}>
-              <TouchableOpacity
-                style={[styles.actionButton, { backgroundColor: THEME.danger }]}
-                onPress={() => setCancelMode(true)}
-                disabled={saving}
-              >
-                <Ionicons name="close-circle" size={16} color="white" />
-                <Text style={styles.actionButtonText}>Cancelar Cita</Text>
-              </TouchableOpacity>
-
-              {cancelMode && (
-                <View style={styles.cancelReasonBox}>
-                  <Text style={styles.detailKey}>Motivo de cancelación</Text>
-                  <TextInput
-                    style={styles.holdReasonInput}
-                    value={cancelReason}
-                    onChangeText={setCancelReason}
-                    placeholder="Describe por qué se cancela"
-                    editable={!saving}
-                  />
-                  <TouchableOpacity
-                    style={[styles.actionButton, { backgroundColor: THEME.danger, marginTop: 8 }]}
-                    onPress={() => {
-                      if (!cancelReason.trim()) {
-                        Alert.alert('Requerido', 'Debes indicar la razón de cancelación.');
-                        return;
-                      }
-                      updateStatus('cancelled', cancelReason.trim());
-                    }}
-                    disabled={saving}
-                  >
-                    <Ionicons name="checkmark-circle" size={16} color="white" />
-                    <Text style={styles.actionButtonText}>Confirmar cancelación</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.actionButton, { backgroundColor: '#E5E7EB', marginTop: 8 }]}
-                    onPress={() => { setCancelMode(false); setCancelReason(''); }}
-                    disabled={saving}
-                  >
-                    <Text style={[styles.actionButtonText, { color: THEME.text }]}>Volver</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            </View>
-          )}
-        </View>
-
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Detalles de la Cita</Text>
-          <Text style={styles.detailRow}><Text style={styles.detailKey}>Fecha:</Text> {formatDate(appointment.scheduled_at)}</Text>
-          <Text style={styles.detailRow}><Text style={styles.detailKey}>Hora:</Text> {formatTime(appointment.scheduled_at)}</Text>
-          {appointment.notes ? <Text style={styles.detailRow}><Text style={styles.detailKey}>Notas:</Text> {appointment.notes}</Text> : null}
-        </View>
-
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Cliente</Text>
-          <Text style={styles.detailRow}><Text style={styles.detailKey}>Nombre:</Text> {appointment.client?.first_name} {appointment.client?.last_name}</Text>
-          <Text style={styles.detailRow}><Text style={styles.detailKey}>Email:</Text> {appointment.client?.email || 'N/A'}</Text>
-          <Text style={styles.detailRow}><Text style={styles.detailKey}>Teléfono:</Text> {appointment.client?.phone || 'N/A'}</Text>
-        </View>
-
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Vehículo</Text>
-          <Text style={styles.detailRow}><Text style={styles.detailKey}>Vehículo:</Text> {appointment.vehicle?.make} {appointment.vehicle?.model} ({appointment.vehicle?.license_plate})</Text>
-          <Text style={styles.detailRow}><Text style={styles.detailKey}>Año:</Text> {appointment.vehicle?.year || 'N/A'}</Text>
-          <Text style={styles.detailRow}><Text style={styles.detailKey}>Color:</Text> {appointment.vehicle?.color || 'N/A'}</Text>
-        </View>
-
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Servicio</Text>
-          <Text style={styles.detailRow}><Text style={styles.detailKey}>Nombre:</Text> {appointment.service?.name || 'N/A'}</Text>
-          <Text style={styles.detailRow}><Text style={styles.detailKey}>Descripción:</Text> {appointment.service?.description || 'N/A'}</Text>
-          <Text style={styles.detailRow}><Text style={styles.detailKey}>Precio Estimado:</Text> {appointment.final_price != null ? `$${appointment.final_price.toFixed(2)}` : 'N/A'}</Text>
-        </View>
-
-
-      </ScrollView>
-    </View>
-  );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: THEME.bg,
-  },
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: THEME.bg,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  errorText: {
-    color: THEME.danger,
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  backBtn: {
-    backgroundColor: THEME.primary,
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-  },
-  backBtnText: {
-    color: 'white',
-    fontWeight: '700',
-  },
-  content: {
-    padding: 16,
-    paddingBottom: 32,
-  },
-  statusBadgeCard: {
-    backgroundColor: '#F3F4F6',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: THEME.border,
-    padding: 10,
-    marginBottom: 12,
-    alignItems: 'center',
-  },
-  statusBadgeText: {
-    fontWeight: '700',
-  },
-  sectionCard: {
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 14,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: THEME.border,
-  },
-  sectionTitle: {
-    fontWeight: '700',
-    color: THEME.text,
-    marginBottom: 10,
-  },
-  flowContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 8,
-    flexWrap: 'wrap',
-  },
-  flowRow: {
-    alignItems: 'center',
-    width: '22%',
-  },
-  flowLine: {
-    position: 'absolute',
-    top: 12,
-    left: '100%',
-    width: 20,
-    height: 2,
-    backgroundColor: '#D1D5DB',
-    zIndex: -1,
-  },
-  flowLineActive: {
-    backgroundColor: THEME.primary,
-  },
-  flowDot: {
-    width: 24,
-    height: 24,
-    borderRadius: 99,
-    backgroundColor: '#D1D5DB',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 5,
-  },
-  flowDotActive: {
-    backgroundColor: THEME.primary,
-  },
-  flowLabel: {
-    fontSize: 10,
-    textAlign: 'center',
-    color: THEME.textSoft,
-  },
-  flowLabelActive: {
-    color: THEME.text,
-    fontWeight: '700',
-  },
-  statusSelectContainer: {
-    marginTop: 16,
-  },
-  statusSelectLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: THEME.textSoft,
-    marginBottom: 8,
-  },
-  statusSelectButton: {
-    backgroundColor: 'white',
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderColor: THEME.border,
-  },
-  statusSelectButtonText: {
-    fontSize: 14,
-    color: THEME.text,
-    fontWeight: '700',
-  },
-  statusDropdown: {
-    backgroundColor: 'white',
-    borderWidth: 1,
-    borderColor: THEME.border,
-    borderRadius: 12,
-    marginTop: 8,
-    overflow: 'hidden',
-  },
-  statusOption: {
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-  },
-  statusOptionText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  holdReasonBox: {
-    marginTop: 10,
-    backgroundColor: '#F3F4F6',
-    borderRadius: 12,
-    padding: 12,
-  },
-  cancelReasonBox: {
-    marginTop: 10,
-    backgroundColor: '#FEF2F2',
-    borderRadius: 12,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#FECACA',
-  },
-  holdReasonInput: {
-    marginTop: 8,
-    backgroundColor: 'white',
-    borderWidth: 1,
-    borderColor: THEME.border,
-    borderRadius: 10,
-    padding: 10,
-    minHeight: 80,
-    textAlignVertical: 'top',
-  },
-  actionsContainer: {
-    marginTop: 8,
-    flexDirection: 'row',
-    gap: 8,
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-  },
-  actionButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  actionButtonText: {
-    color: 'white',
-    fontWeight: '700',
-  },
-  detailRow: {
-    fontSize: 14,
-    color: THEME.text,
-    marginBottom: 4,
-  },
-  detailKey: {
-    fontWeight: '700',
-  },
+    container: { flex: 1, backgroundColor: THEME.bg },
+    center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    scrollContent: { paddingBottom: 40 },
+    
+    header: { paddingBottom: 40, borderBottomLeftRadius: 32, borderBottomRightRadius: 32, elevation: 8 },
+    headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, marginTop: Platform.OS === 'ios' ? 60 : 50 },
+    backButtonCompact: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center' },
+    chatButton: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: THEME.primary, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, elevation: 4 },
+    chatButtonText: { color: 'white', fontWeight: 'bold', fontSize: 13 },
+    headerContent: { paddingHorizontal: 24, marginTop: 10 },
+    statusTag: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 20, marginBottom: 12, gap: 6 },
+    statusTagText: { color: 'white', fontSize: 10, fontWeight: '900', letterSpacing: 1 },
+    headerTitle: { color: 'white', fontSize: 28, fontWeight: '900' },
+    headerSubtitle: { color: 'rgba(255,255,255,0.8)', fontSize: 13, marginTop: 4, textTransform: 'capitalize' },
+
+    body: { paddingHorizontal: 20, marginTop: -30 },
+    sectionCard: { backgroundColor: THEME.white, borderRadius: 24, padding: 20, marginBottom: 16, elevation: 3, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 4 } },
+    
+    controlsSection: { marginBottom: 20 },
+    sectionTitle: { fontSize: 11, fontWeight: '900', color: THEME.textMuted, letterSpacing: 1, marginBottom: 12, marginLeft: 4 },
+    controlsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+    quickBtn: { width: (width - 60) / 2, height: 50, borderRadius: 14, justifyContent: 'center', alignItems: 'center', gap: 6, position: 'relative' },
+    quickBtnText: { color: 'white', fontSize: 13, fontWeight: 'bold' },
+    activeIndicator: { position: 'absolute', top: 6, right: 6, width: 6, height: 6, borderRadius: 3, backgroundColor: 'white' },
+
+    progressTracker: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 5 },
+    trackerItem: { alignItems: 'center', flex: 1, position: 'relative' },
+    trackerDot: { width: 20, height: 20, borderRadius: 10, backgroundColor: '#E2E8F0', justifyContent: 'center', alignItems: 'center', zIndex: 1 },
+    innerDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: 'white' },
+    trackerLine: { position: 'absolute', top: 10, left: '60%', width: '80%', height: 2, backgroundColor: '#E2E8F0', zIndex: 0 },
+    trackerLabel: { fontSize: 7.5, color: THEME.textMuted, marginTop: 6, textAlign: 'center' },
+
+    infoGrid: { flexDirection: 'row', gap: 12, marginBottom: 16 },
+    infoCard: { flex: 1, backgroundColor: THEME.white, borderRadius: 24, padding: 16, elevation: 3 },
+    cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
+    cardTitle: { fontSize: 10, fontWeight: '900', color: THEME.textMuted, letterSpacing: 1 },
+    clientName: { fontSize: 15, fontWeight: 'bold', color: THEME.text },
+    callButton: { backgroundColor: THEME.secondary, borderRadius: 12, paddingVertical: 8, height: 35, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 12 },
+    callButtonText: { color: 'white', fontSize: 12, fontWeight: 'bold' },
+
+    vehicleName: { fontSize: 15, fontWeight: 'bold', color: THEME.text },
+    plateTag: { backgroundColor: THEME.primary + '15', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, alignSelf: 'flex-start', marginTop: 10 },
+    plateText: { color: THEME.primary, fontWeight: '900', fontSize: 12 },
+
+    serviceName: { fontSize: 17, fontWeight: 'bold', color: THEME.text, marginBottom: 8 },
+    priceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
+    priceLabel: { fontSize: 14, color: THEME.textMuted },
+    priceValue: { fontSize: 20, fontWeight: '900', color: THEME.secondary },
+    divider: { height: 1, backgroundColor: THEME.bg, marginVertical: 10 },
+
+    notesInput: { backgroundColor: THEME.bg, borderRadius: 16, padding: 15, minHeight: 80, textAlignVertical: 'top', fontSize: 14, color: THEME.text, marginBottom: 15 },
+    saveNotesBtn: { height: 45, borderRadius: 14, backgroundColor: THEME.secondary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+    saveNotesBtnText: { color: 'white', fontWeight: 'bold', fontSize: 14 },
+
+    cancelLink: { alignSelf: 'center', marginTop: 10, padding: 10 },
+    cancelLinkText: { color: THEME.danger, fontSize: 12, fontWeight: 'bold', textDecorationLine: 'underline' }
 });

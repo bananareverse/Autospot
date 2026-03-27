@@ -33,11 +33,9 @@ export default function HomeScreen() {
     );
 
     useEffect(() => {
-        if (isWorkshop) {
-            router.replace('/(tabs)/agenda');
-            return;
+        if (!isWorkshop) {
+            fetchNearbyWorkshops();
         }
-        fetchNearbyWorkshops();
     }, [isWorkshop]);
 
     function getDistanceInKm(lat1: number, lon1: number, lat2: number, lon2: number) {

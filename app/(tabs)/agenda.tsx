@@ -1,9 +1,14 @@
 import { useAuth } from '@/ctx/AuthContext';
 import { supabase } from '@/lib/supabase';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { StatusBar } from 'expo-status-bar';
+import { useEffect, useMemo, useState } from 'react';
 import {
     ActivityIndicator,
+    Dimensions,
+    Platform,
     ScrollView,
     StyleSheet,
     Text,
@@ -11,31 +16,36 @@ import {
     View
 } from 'react-native';
 
-interface Vehicle {
-    id: string;
-    make: string;
-    model: string;
-    license_plate: string;
-}
+const { width } = Dimensions.get('window');
 
-interface Service {
-    id: string;
-    name: string;
-    estimated_price: number;
-}
+const THEME = {
+    primary: '#219ebc',
+    secondary: '#023047',
+    accent: '#fb8500',
+    bg: '#F8FAFC',
+    card: '#FFFFFF',
+    text: '#1e293b',
+    textMuted: '#64748b',
+    border: '#e2e8f0',
+};
+
+const STATUS_CONFIG: Record<string, { label: string, color: string, icon: any }> = {
+    scheduled: { label: 'Programada', color: '#3b82f6', icon: 'calendar-outline' },
+    confirmed: { label: 'Confirmada', color: '#10b981', icon: 'checkmark-circle-outline' },
+    in_progress: { label: 'En Proceso', color: '#8b5cf6', icon: 'hammer-outline' },
+    ready: { label: 'Lista', color: '#f59e0b', icon: 'star-outline' },
+    completed: { label: 'Completada', color: '#64728b', icon: 'checkmark-done' },
+    cancelled: { label: 'Cancelada', color: '#ef4444', icon: 'close-circle-outline' },
+};
 
 interface AppointmentWithDetails {
     id: string;
     scheduled_at: string;
     status: string;
     notes: string | null;
-    client_id: string;
-    vehicle_id: string;
-    workshop_id: string | null;
-    service_id: string | null;
-    created_at: string;
-    vehicle?: Vehicle;
-    service?: Service;
+    client: { first_name: string; last_name: string; phone?: string } | null;
+    vehicle: { make: string; model: string; license_plate: string } | null;
+    service: { name: string; estimated_price: number } | null;
     final_price?: number;
 }
 
@@ -58,411 +68,247 @@ export default function AgendaScreen() {
             const { data: { user } } = await supabase.auth.getUser();
 
             if (!user?.id) {
-                console.log("No user found");
                 setAppointments([]);
                 return;
             }
 
-            console.log("User ID:", user.id);
-
-            // Get workshop ID associated with this user
-            const { data: workshopStaff, error: staffError } = await supabase
+            const { data: staffData } = await supabase
                 .from('workshop_staff')
                 .select('workshop_id')
                 .eq('user_id', user.id)
                 .single();
 
-            if (staffError || !workshopStaff) {
-                console.log("No workshop found for user:", staffError);
+            if (!staffData) {
                 setAppointments([]);
                 return;
             }
 
-            console.log("Workshop ID:", workshopStaff.workshop_id);
-
-            // Get appointments for this workshop with vehicle and service details
             const { data, error } = await supabase
                 .from('appointments')
                 .select(`
-                    *,
-                    vehicle:vehicles(id, make, model, license_plate),
-                    service:service_catalog(id, name, estimated_price)
+                    id, scheduled_at, status, notes,
+                    client:clients(first_name, last_name, phone),
+                    vehicle:vehicles(make, model, license_plate),
+                    service:service_catalog(name, estimated_price),
+                    workshop_id, service_id
                 `)
-                .eq('workshop_id', workshopStaff.workshop_id)
+                .eq('workshop_id', staffData.workshop_id)
                 .order('scheduled_at', { ascending: true });
 
             if (error) {
-                console.log("ERROR fetching appointments:", error);
+                console.error("Fetch appointments error:", error);
                 setAppointments([]);
             } else {
-                console.log("Total appointments fetched:", (data || []).length);
-                if (data && data.length > 0) {
-                    for (let apt of data) {
-                        apt.final_price = apt.service?.estimated_price;
-                        if (apt.workshop_id && apt.service_id) {
-                            const { data: ws } = await supabase
-                                .from('workshop_services')
-                                .select('custom_price')
-                                .eq('workshop_id', apt.workshop_id)
-                                .eq('service_id', apt.service_id)
-                                .maybeSingle();
-                            if (ws?.custom_price) {
-                                apt.final_price = ws.custom_price;
-                            }
-                        }
-                        console.log(`Cita: ID=${apt.id}, Fecha=${apt.scheduled_at}, Status=${apt.status}, Precio=${apt.final_price}`);
+                // Enrich data with custom prices if exists
+                const enrichedData = await Promise.all((data || []).map(async (apt: any) => {
+                    let price = apt.service?.estimated_price || 0;
+                    if (apt.workshop_id && apt.service_id) {
+                        const { data: ws } = await supabase
+                            .from('workshop_services')
+                            .select('custom_price')
+                            .eq('workshop_id', apt.workshop_id)
+                            .eq('service_id', apt.service_id)
+                            .maybeSingle();
+                        if (ws?.custom_price) price = ws.custom_price;
                     }
-                } else {
-                    console.log("No appointments found for workshop:", workshopStaff.workshop_id);
-                }
-                setAppointments(data || []);
+                    return { ...apt, final_price: price };
+                }));
+                setAppointments(enrichedData);
             }
-
         } catch (e) {
-            console.log("ERROR GENERAL:", e);
+            console.error("Agenda screen crash:", e);
             setAppointments([]);
         } finally {
             setLoading(false);
         }
     }
 
-    // Bloquear usuario cliente
+    // Redirect if not a workshop
     useEffect(() => {
         if (isWorkshop === false) {
             router.replace('/');
         }
     }, [isWorkshop]);
 
-    const handleAppointmentPress = (appointment: AppointmentWithDetails) => {
-        router.push({
-            pathname: '/appointment-details',
-            params: {
-                appointmentId: appointment.id,
-            },
-        });
-    };
+    const dailyAppointments = useMemo(() => {
+        const dateStr = selectedDate.toISOString().split('T')[0];
+        return appointments.filter(a => a.scheduled_at.startsWith(dateStr));
+    }, [appointments, selectedDate]);
 
-    const navigateDay = (direction: number) => {
-        const newDate = new Date(selectedDate);
-        newDate.setDate(newDate.getDate() + direction);
-        setSelectedDate(newDate);
-    };
-
-    const getAppointmentsForSelectedDate = (): AppointmentWithDetails[] => {
-        const selectedDateStr = selectedDate.toISOString().split('T')[0];
-        return appointments
-            .filter((apt) => apt.scheduled_at.split('T')[0] === selectedDateStr)
-            .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime());
-    };
-
-    const generateWeekDays = () => {
+    const weekDays = useMemo(() => {
         const days = [];
-        const today = new Date();
-        for (let i = -3; i <= 3; i++) {
-            const day = new Date(today);
-            day.setDate(today.getDate() + i);
-            days.push(day);
+        const start = new Date(selectedDate);
+        start.setDate(selectedDate.getDate() - 3);
+        for (let i = 0; i < 7; i++) {
+            const d = new Date(start);
+            d.setDate(start.getDate() + i);
+            days.push(d);
         }
         return days;
-    };
+    }, [selectedDate]);
 
-    const getStatusColor = (status: string): string => {
-        switch (status.toLowerCase()) {
-            case 'scheduled':
-                return '#0078d4'; // Azul
-            case 'confirmed':
-                return '#10B981'; // Verde
-            case 'completed':
-                return '#6B7280'; // Gris
-            case 'cancelled':
-                return '#EF4444'; // Rojo
-            default:
-                return '#6B7280'; // Gris por defecto
-        }
-    };
-
-    if (isWorkshop === undefined) {
-        return <ActivityIndicator style={{ marginTop: 50 }} />;
-    }
-
-    if (isWorkshop === false) {
-        return null;
-    }
-
-    if (loading) {
-        return <ActivityIndicator style={{ marginTop: 50 }} />;
-    }
-
-    const selectedDateAppointments = getAppointmentsForSelectedDate();
-    const weekDays = generateWeekDays();
+    if (loading) return (
+        <View style={styles.center}>
+            <ActivityIndicator size="large" color={THEME.primary} />
+        </View>
+    );
 
     return (
         <View style={styles.container}>
-            {/* Header with Date */}
-            <View style={styles.header}>
-                <TouchableOpacity onPress={() => navigateDay(-1)} style={styles.navButton}>
-                    <Text style={styles.navButtonText}>←</Text>
-                </TouchableOpacity>
-                <View style={styles.dateContainer}>
-                    <Text style={styles.dateText}>
-                        {selectedDate.toLocaleDateString('es-ES', {
-                            weekday: 'long',
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric'
-                        })}
-                    </Text>
-                    <Text style={styles.appointmentCount}>
-                        {selectedDateAppointments.length} cita{selectedDateAppointments.length !== 1 ? 's' : ''}
-                    </Text>
-                </View>
-                <TouchableOpacity onPress={() => navigateDay(1)} style={styles.navButton}>
-                    <Text style={styles.navButtonText}>→</Text>
-                </TouchableOpacity>
-            </View>
+            <StatusBar style="light" />
 
-            {/* Day Selector Bar */}
-            <View style={styles.daySelector}>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.daySelectorContent}>
-                    {weekDays.map((day, index) => {
-                        const isSelected = day.toDateString() === selectedDate.toDateString();
-                        const isToday = isDateToday(day);
+            {/* Header Section */}
+            <LinearGradient
+                colors={[THEME.secondary, THEME.primary]}
+                style={styles.header}
+            >
+                <View style={styles.headerTop}>
+                    <Text style={styles.screenTitle}>Agenda</Text>
+                    <TouchableOpacity onPress={fetchAppointments}>
+                        <Ionicons name="refresh" size={20} color="white" />
+                    </TouchableOpacity>
+                </View>
+
+                <View style={styles.dateDisplay}>
+                    <Text style={styles.dayBig}>{selectedDate.getDate()}</Text>
+                    <View>
+                        <Text style={styles.monthLabel}>{selectedDate.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }).toUpperCase()}</Text>
+                        <Text style={styles.weekdayLabel}>{selectedDate.toLocaleDateString('es-ES', { weekday: 'long' })}</Text>
+                    </View>
+                </View>
+
+                {/* Day selector Pills */}
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dayPillsContainer}>
+                    {weekDays.map((d, i) => {
+                        const active = d.toDateString() === selectedDate.toDateString();
+                        const isToday = d.toDateString() === new Date().toDateString();
                         return (
                             <TouchableOpacity
-                                key={index}
-                                onPress={() => setSelectedDate(day)}
-                                style={[styles.dayButton, isSelected && styles.selectedDayButton]}
+                                key={i}
+                                style={[styles.dayPill, active && styles.dayPillActive]}
+                                onPress={() => setSelectedDate(d)}
                             >
-                                <Text style={[styles.dayButtonName, isSelected && styles.selectedDayText, isToday && !isSelected && styles.todayText]}>
-                                    {day.toLocaleDateString('es-ES', { weekday: 'short' })}
+                                <Text style={[styles.dayPillName, active && styles.dayPillTextActive]}>
+                                    {d.toLocaleDateString('es-ES', { weekday: 'short' })}
                                 </Text>
-                                <Text style={[styles.dayButtonNumber, isSelected && styles.selectedDayText, isToday && !isSelected && styles.todayText]}>
-                                    {day.getDate()}
+                                <Text style={[styles.dayPillNum, active && styles.dayPillTextActive]}>
+                                    {d.getDate()}
                                 </Text>
+                                {isToday && !active && <View style={styles.todayDot} />}
                             </TouchableOpacity>
                         );
                     })}
                 </ScrollView>
-            </View>
+            </LinearGradient>
 
-            {/* Appointments List */}
-            <ScrollView style={styles.appointmentsList} showsVerticalScrollIndicator={false}>
-                {selectedDateAppointments.length === 0 ? (
-                    <View style={styles.emptyState}>
-                        <Text style={styles.emptyStateText}>No hay citas programadas para este día</Text>
-                        <Text style={styles.emptyStateSubtext}>Las citas aparecerán aquí cuando sean agendadas</Text>
+            <View style={styles.body}>
+                <View style={styles.listHeader}>
+                    <Text style={styles.listTitle}>CITAS DEL DÍA</Text>
+                    <View style={styles.badge}>
+                        <Text style={styles.badgeText}>{dailyAppointments.length}</Text>
                     </View>
-                ) : (
-                    selectedDateAppointments.map((appointment) => (
-                        <TouchableOpacity
-                            key={appointment.id}
-                            onPress={() => handleAppointmentPress(appointment)}
-                            style={styles.appointmentCard}
-                        >
-                            <View style={styles.appointmentTimeContainer}>
-                                <Text style={styles.appointmentTime}>
-                                    {new Date(appointment.scheduled_at).toLocaleTimeString([], {
-                                        hour: '2-digit',
-                                        minute: '2-digit',
-                                    })}
-                                </Text>
-                                <View style={[styles.statusIndicator, { backgroundColor: getStatusColor(appointment.status) }]} />
+                </View>
+
+                <ScrollView contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
+                    {dailyAppointments.length === 0 ? (
+                        <View style={styles.emptyState}>
+                            <View style={styles.emptyIconBox}>
+                                <Ionicons name="calendar-outline" size={48} color={THEME.border} />
                             </View>
-                            <View style={styles.appointmentDetails}>
-                                <Text style={styles.appointmentTitle}>
-                                    {appointment.vehicle?.model || 'Vehículo'} - {appointment.service?.name || 'Servicio'}
-                                </Text>
-                                <Text style={styles.appointmentSubtitle}>
-                                    {appointment.vehicle?.license_plate || 'Sin placas'}
-                                </Text>
-                                {appointment.notes && (
-                                    <Text style={styles.appointmentNotes} numberOfLines={2}>
-                                        {appointment.notes}
-                                    </Text>
-                                )}
-                            </View>
-                            <View style={styles.appointmentArrow}>
-                                <Text style={styles.arrowText}>›</Text>
-                            </View>
-                        </TouchableOpacity>
-                    ))
-                )}
-            </ScrollView>
+                            <Text style={styles.emptyText}>No hay citas para hoy</Text>
+                            <Text style={styles.emptySub}>Disfruta de tu tiempo libre o revisa otros días.</Text>
+                        </View>
+                    ) : (
+                        dailyAppointments.map((apt) => {
+                            const conf = STATUS_CONFIG[apt.status] || STATUS_CONFIG.scheduled;
+                            return (
+                                <TouchableOpacity
+                                    key={apt.id}
+                                    style={styles.aptCard}
+                                    onPress={() => router.push({ pathname: '/workshop-appointment-details', params: { appointmentId: apt.id } })}
+                                >
+                                    <View style={[styles.statusSideBar, { backgroundColor: conf.color }]} />
+
+                                    <View style={styles.aptTimeColumn}>
+                                        <Text style={styles.aptHour}>{new Date(apt.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+                                        <Text style={styles.aptDuration}>---</Text>
+                                    </View>
+
+                                    <View style={styles.aptMainInfo}>
+                                        <Text style={styles.clientName}>{apt.client?.first_name} {apt.client?.last_name || 'Cliente'}</Text>
+                                        <Text style={styles.vehicleInfo} numberOfLines={1}>{apt.vehicle?.make} {apt.vehicle?.model} • <Text style={{ color: THEME.primary }}>{apt.vehicle?.license_plate}</Text></Text>
+                                        <View style={styles.serviceTag}>
+                                            <Ionicons name="construct-outline" size={12} color={THEME.textMuted} />
+                                            <Text style={styles.serviceText}>{apt.service?.name}</Text>
+                                        </View>
+                                    </View>
+
+                                    <View style={styles.aptEndColumn}>
+                                        <View style={[styles.statusIconBox, { backgroundColor: conf.color + '15' }]}>
+                                            <Ionicons name={conf.icon} size={18} color={conf.color} />
+                                        </View>
+                                        <Text style={styles.aptPrice}>${apt.final_price?.toLocaleString()}</Text>
+                                    </View>
+                                </TouchableOpacity>
+                            );
+                        })
+                    )}
+                </ScrollView>
+            </View>
         </View>
     );
 }
 
-// Helper Functions
-function isDateToday(date: Date): boolean {
-    const today = new Date();
-    return date.getDate() === today.getDate() &&
-        date.getMonth() === today.getMonth() &&
-        date.getFullYear() === today.getFullYear();
-}
-
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#f5f5f5',
-        paddingTop: 40,
+    container: { flex: 1, backgroundColor: THEME.bg },
+    center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+
+    header: { paddingBottom: 24, borderBottomLeftRadius: 32, borderBottomRightRadius: 32, elevation: 8, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 10 },
+    headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingTop: Platform.OS === 'ios' ? 60 : 50 },
+    screenTitle: { color: 'white', fontSize: 24, fontWeight: '900', letterSpacing: 0.5 },
+
+    dateDisplay: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, marginTop: 20, gap: 12 },
+    dayBig: { fontSize: 48, fontWeight: '900', color: 'white' },
+    monthLabel: { fontSize: 13, fontWeight: 'bold', color: 'rgba(255,255,255,0.7)', letterSpacing: 1 },
+    weekdayLabel: { fontSize: 16, fontWeight: 'bold', color: 'white', textTransform: 'capitalize' },
+
+    dayPillsContainer: { paddingHorizontal: 20, marginTop: 24, gap: 10 },
+    dayPill: { width: 55, height: 75, backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 16, justifyContent: 'center', alignItems: 'center', position: 'relative' },
+    dayPillActive: { backgroundColor: THEME.accent },
+    dayPillName: { fontSize: 11, fontWeight: 'bold', color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase' },
+    dayPillNum: { fontSize: 18, fontWeight: '900', color: 'white', marginTop: 2 },
+    dayPillTextActive: { color: 'white' },
+    todayDot: { position: 'absolute', bottom: 8, width: 4, height: 4, borderRadius: 2, backgroundColor: THEME.accent },
+
+    body: { flex: 1, paddingHorizontal: 20, marginTop: 20 },
+    listHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16 },
+    listTitle: { fontSize: 13, fontWeight: '900', color: THEME.textMuted, letterSpacing: 1 },
+    badge: { backgroundColor: THEME.primary, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 },
+    badgeText: { color: 'white', fontSize: 12, fontWeight: 'bold' },
+
+    listContent: { paddingBottom: 30 },
+    aptCard: {
+        backgroundColor: THEME.card, borderRadius: 20, marginBottom: 12,
+        flexDirection: 'row', overflow: 'hidden', elevation: 3,
+        shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }
     },
-    header: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        backgroundColor: '#ffffff',
-        borderBottomWidth: 1,
-        borderBottomColor: '#e0e0e0',
-    },
-    navButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: '#f0f0f0',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    navButtonText: {
-        fontSize: 18,
-        color: '#0078d4',
-        fontWeight: 'bold',
-    },
-    dateContainer: {
-        flex: 1,
-        alignItems: 'center',
-    },
-    dateText: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: '#2d3436',
-        textAlign: 'center',
-    },
-    appointmentCount: {
-        fontSize: 14,
-        color: '#666',
-        marginTop: 4,
-    },
-    daySelector: {
-        backgroundColor: '#ffffff',
-        borderBottomWidth: 1,
-        borderBottomColor: '#e0e0e0',
-        height: 80,
-    },
-    daySelectorContent: {
-        paddingHorizontal: 8,
-        alignItems: 'center',
-    },
-    dayButton: {
-        width: 50,
-        height: 60,
-        marginHorizontal: 4,
-        borderRadius: 8,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: '#f9f9f9',
-    },
-    selectedDayButton: {
-        backgroundColor: '#0078d4',
-    },
-    dayButtonName: {
-        fontSize: 11,
-        color: '#666',
-        textTransform: 'uppercase',
-        fontWeight: '500',
-    },
-    dayButtonNumber: {
-        fontSize: 16,
-        fontWeight: 'bold',
-        color: '#2d3436',
-        marginTop: 2,
-    },
-    selectedDayText: {
-        color: '#ffffff',
-    },
-    todayText: {
-        color: '#0078d4',
-    },
-    appointmentsList: {
-        flex: 1,
-        padding: 16,
-    },
-    emptyState: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        paddingVertical: 60,
-    },
-    emptyStateText: {
-        fontSize: 18,
-        fontWeight: '600',
-        color: '#2d3436',
-        textAlign: 'center',
-        marginBottom: 8,
-    },
-    emptyStateSubtext: {
-        fontSize: 14,
-        color: '#666',
-        textAlign: 'center',
-        lineHeight: 20,
-    },
-    appointmentCard: {
-        backgroundColor: '#ffffff',
-        borderRadius: 12,
-        padding: 16,
-        marginBottom: 12,
-        flexDirection: 'row',
-        alignItems: 'center',
-        shadowColor: '#000',
-        shadowOffset: {
-            width: 0,
-            height: 2,
-        },
-        shadowOpacity: 0.1,
-        shadowRadius: 3.84,
-        elevation: 5,
-    },
-    appointmentTimeContainer: {
-        alignItems: 'center',
-        marginRight: 16,
-    },
-    appointmentTime: {
-        fontSize: 16,
-        fontWeight: 'bold',
-        color: '#2d3436',
-    },
-    statusIndicator: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-        marginTop: 4,
-    },
-    appointmentDetails: {
-        flex: 1,
-    },
-    appointmentTitle: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: '#2d3436',
-        marginBottom: 4,
-    },
-    appointmentSubtitle: {
-        fontSize: 14,
-        color: '#666',
-        marginBottom: 4,
-    },
-    appointmentNotes: {
-        fontSize: 13,
-        color: '#888',
-        lineHeight: 18,
-    },
-    appointmentArrow: {
-        marginLeft: 8,
-    },
-    arrowText: {
-        fontSize: 24,
-        color: '#ccc',
-        fontWeight: 'bold',
-    },
+    statusSideBar: { width: 6, height: '100%' },
+    aptTimeColumn: { padding: 15, justifyContent: 'center', alignItems: 'center', borderRightWidth: 1, borderRightColor: THEME.border, width: 75 },
+    aptHour: { fontSize: 15, fontWeight: '900', color: THEME.secondary },
+    aptDuration: { fontSize: 10, color: THEME.textMuted, marginTop: 2 },
+
+    aptMainInfo: { flex: 1, padding: 15, justifyContent: 'center' },
+    clientName: { fontSize: 16, fontWeight: 'bold', color: THEME.text },
+    vehicleInfo: { fontSize: 13, color: THEME.textMuted, marginTop: 2 },
+    serviceTag: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 },
+    serviceText: { fontSize: 12, fontWeight: 'bold', color: THEME.textMuted },
+
+    aptEndColumn: { padding: 15, alignItems: 'center', justifyContent: 'space-between' },
+    statusIconBox: { width: 32, height: 32, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
+    aptPrice: { fontSize: 14, fontWeight: '900', color: THEME.secondary },
+
+    emptyState: { paddingVertical: 60, alignItems: 'center' },
+    emptyIconBox: { width: 80, height: 80, borderRadius: 24, backgroundColor: '#f1f5f9', justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
+    emptyText: { fontSize: 18, fontWeight: 'bold', color: THEME.secondary },
+    emptySub: { fontSize: 14, color: THEME.textMuted, textAlign: 'center', marginTop: 4, paddingHorizontal: 40 }
 });

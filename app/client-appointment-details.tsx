@@ -1,10 +1,10 @@
 import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View, Platform, Dimensions } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { ActivityIndicator, Alert, Dimensions, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const { width } = Dimensions.get('window');
 
@@ -152,14 +152,20 @@ export default function ClientAppointmentDetailsScreen() {
             />
 
             <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-                
+
                 {/* Custom Header */}
                 <View style={styles.header}>
                     <TouchableOpacity onPress={() => router.back()} style={styles.iconButton}>
                         <Ionicons name="arrow-back" size={24} color="white" />
                     </TouchableOpacity>
                     <Text style={styles.headerTitle}>Detalles de Cita</Text>
-                    <View style={{ width: 40 }} />
+                    <TouchableOpacity 
+                        style={styles.chatButton} 
+                        onPress={() => router.push({ pathname: '/chat/[appointmentId]', params: { appointmentId: appointment.id } })}
+                    >
+                        <Ionicons name="chatbubbles" size={20} color="white" />
+                        <Text style={styles.chatButtonText}>Chat</Text>
+                    </TouchableOpacity>
                 </View>
 
                 {/* Status Hero Floating Card */}
@@ -171,24 +177,24 @@ export default function ClientAppointmentDetailsScreen() {
                         </Text>
                     </View>
                     <Text style={styles.appointmentId}>#{appointment.id.slice(0, 8).toUpperCase()}</Text>
-                    
+
                     {/* Timeline Tracker */}
                     {appointment.status !== 'cancelled' && (
                         <View style={styles.timelineContainer}>
                             {[1, 2, 3, 4, 5].map((step) => (
                                 <View key={step} style={styles.timelineStepWrapper}>
-                                    <View 
+                                    <View
                                         style={[
-                                            styles.timelineStep, 
+                                            styles.timelineStep,
                                             step <= currentStatus.step ? { backgroundColor: currentStatus.color } : styles.timelineStepInactive
-                                        ]} 
+                                        ]}
                                     />
                                     {step < 5 && (
-                                        <View 
+                                        <View
                                             style={[
-                                                styles.timelineLine, 
+                                                styles.timelineLine,
                                                 step < currentStatus.step ? { backgroundColor: currentStatus.color } : styles.timelineLineInactive
-                                            ]} 
+                                            ]}
                                         />
                                     )}
                                 </View>
@@ -199,7 +205,7 @@ export default function ClientAppointmentDetailsScreen() {
 
                 {/* Main Content Sections */}
                 <View style={styles.sectionsContainer}>
-                    
+
                     {/* Info Card: Taller */}
                     <SectionCard title="Taller" icon="business-outline">
                         <Text style={styles.workshopName}>{appointment.workshop?.name}</Text>
@@ -238,7 +244,7 @@ export default function ClientAppointmentDetailsScreen() {
                             <Text style={styles.serviceName}>{appointment.service?.name}</Text>
                             <Text style={styles.servicePrice}>${appointment.final_price?.toLocaleString() || '0.00'}</Text>
                         </View>
-                        
+
                         <View style={styles.dateTimeContainer}>
                             <View style={styles.dateTimeItem}>
                                 <Ionicons name="calendar-clear" size={18} color={THEME.primary} />
@@ -271,7 +277,7 @@ export default function ClientAppointmentDetailsScreen() {
 
                     {/* Actions */}
                     {(appointment.status === 'scheduled' || appointment.status === 'confirmed') && (
-                        <TouchableOpacity 
+                        <TouchableOpacity
                             style={[styles.cancelButton, cancelling && { opacity: 0.7 }]}
                             onPress={handleCancel}
                             disabled={cancelling}
@@ -378,6 +384,21 @@ const styles = StyleSheet.create({
         fontWeight: '900',
         color: 'white',
         letterSpacing: 0.5,
+    },
+    chatButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        backgroundColor: THEME.primary,
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 20,
+        elevation: 4,
+    },
+    chatButtonText: {
+        color: 'white',
+        fontWeight: 'bold',
+        fontSize: 13,
     },
     statusCard: {
         backgroundColor: 'white',
