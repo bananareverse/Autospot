@@ -1,0 +1,86 @@
+import { Tabs } from 'expo-router';
+import React from 'react';
+import { Platform } from 'react-native';
+
+import { HapticTab } from '@/components/haptic-tab';
+import { IconSymbol } from '@/components/ui/icon-symbol';
+import { useAuth } from '@/ctx/AuthContext';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+import { Ionicons } from '@expo/vector-icons';
+
+export default function TabLayout() {
+  const colorScheme = useColorScheme();
+  const { isWorkshop } = useAuth();
+
+  return (
+    <Tabs
+      screenOptions={{
+        tabBarActiveTintColor: '#219ebc', // Azul cian (Premium)
+        tabBarInactiveTintColor: '#9CA3AF', // Gris claro
+        headerShown: false,
+        tabBarButton: HapticTab,
+        tabBarStyle: Platform.select({
+          ios: {
+            position: 'absolute',
+            backgroundColor: 'rgba(255, 255, 255, 0.95)',
+          },
+          default: {
+            backgroundColor: '#FFFFFF',
+            borderTopWidth: 1,
+            borderTopColor: '#E5E7EB',
+            elevation: 0,
+          },
+        }),
+      }}>
+      <Tabs.Screen
+        name="index"
+        options={{
+          title: 'Inicio',
+          href: isWorkshop ? null : undefined, // Hide for workshops
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="agenda"
+        options={{
+          title: 'Agenda',
+          href: isWorkshop ? undefined : null,
+          tabBarIcon: ({ color }) => (<Ionicons name="calendar" size={24} color={color} />),
+        }}
+      />
+      <Tabs.Screen
+        name="appointments"
+        options={{
+          title: 'Citas',
+          href: isWorkshop ? null : undefined,
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="calendar" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="MapScreen"
+        options={{
+          title: "Mapa",
+          href: isWorkshop ? null : undefined, // Hide for workshops
+          tabBarIcon: ({ color }) => (
+            <IconSymbol size={28} name="map.fill" color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="workshop-admin"
+        options={{
+          title: 'Servicios',
+          href: isWorkshop ? undefined : null,
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="wrench.and.screwdriver.fill" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: 'Perfil',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="person.crop.circle" color={color} />,
+        }}
+      />
+    </Tabs>
+  );
+}
