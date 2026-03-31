@@ -99,7 +99,6 @@ export default function AgendaScreen() {
                 console.error("Fetch appointments error:", error);
                 setAppointments([]);
             } else {
-                // Enrich data with custom prices if exists
                 const enrichedData = await Promise.all((data || []).map(async (apt: any) => {
                     let price = apt.service?.estimated_price || 0;
                     if (apt.workshop_id && apt.service_id) {
@@ -123,7 +122,6 @@ export default function AgendaScreen() {
         }
     }
 
-    // Redirect if not a workshop
     useEffect(() => {
         if (isWorkshop === false) {
             router.replace('/');
@@ -157,7 +155,6 @@ export default function AgendaScreen() {
         <View style={styles.container}>
             <StatusBar style="light" />
 
-            {/* Header Section */}
             <LinearGradient
                 colors={[THEME.secondary, THEME.primary]}
                 style={styles.header}
@@ -177,7 +174,6 @@ export default function AgendaScreen() {
                     </View>
                 </View>
 
-                {/* Day selector Pills */}
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dayPillsContainer}>
                     {weekDays.map((d, i) => {
                         const active = d.toDateString() === selectedDate.toDateString();

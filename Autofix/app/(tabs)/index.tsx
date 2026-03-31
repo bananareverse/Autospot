@@ -9,9 +9,9 @@ import { useAuth } from '@/ctx/AuthContext';
 import { LinearGradient } from 'expo-linear-gradient';
 
 const THEME = {
-    primary: '#219ebc',    // Cian Premium
-    secondary: '#023047',  // Marino Profundo
-    accent: '#fb8500',     // Naranja (Acento)
+    primary: '#219ebc',
+    secondary: '#023047',
+    accent: '#fb8500',
     bg: '#FFFFFF',
     card: '#F9FAFB',
     text: '#1F2937',
@@ -113,7 +113,7 @@ export default function HomeScreen() {
         <View style={styles.container}>
             <StatusBar style="light" />
 
-            {/* Gradient Header overlay */}
+
             <LinearGradient
                 colors={[THEME.secondary, THEME.primary]}
                 style={styles.headerGradient}
@@ -126,7 +126,7 @@ export default function HomeScreen() {
                 </View>
             </View>
 
-            {/* Search Bar matching the premium styling slightly overlapping the gradient */}
+
             <View style={styles.searchContainerWrapper}>
                 <View style={styles.searchContainer}>
                     <Ionicons name="search" size={20} color={THEME.textMuted} />

@@ -72,7 +72,6 @@ export default function ClientAppointmentDetailsScreen() {
                 return;
             }
 
-            // Obtener precio personalizado
             let finalPrice = data.service?.estimated_price;
             if (data.workshop_id && data.service_id) {
                 const { data: ws } = await supabase
@@ -153,7 +152,6 @@ export default function ClientAppointmentDetailsScreen() {
 
             <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
-                {/* Custom Header */}
                 <View style={styles.header}>
                     <TouchableOpacity onPress={() => router.back()} style={styles.iconButton}>
                         <Ionicons name="arrow-back" size={24} color="white" />
@@ -168,7 +166,6 @@ export default function ClientAppointmentDetailsScreen() {
                     </TouchableOpacity>
                 </View>
 
-                {/* Status Hero Floating Card */}
                 <View style={styles.statusCard}>
                     <View style={[styles.statusBadge, { backgroundColor: currentStatus.color + '20' }]}>
                         <Ionicons name={currentStatus.icon} size={20} color={currentStatus.color} />
@@ -178,7 +175,6 @@ export default function ClientAppointmentDetailsScreen() {
                     </View>
                     <Text style={styles.appointmentId}>#{appointment.id.slice(0, 8).toUpperCase()}</Text>
 
-                    {/* Timeline Tracker */}
                     {appointment.status !== 'cancelled' && (
                         <View style={styles.timelineContainer}>
                             {[1, 2, 3, 4, 5].map((step) => (
@@ -203,10 +199,8 @@ export default function ClientAppointmentDetailsScreen() {
                     )}
                 </View>
 
-                {/* Main Content Sections */}
                 <View style={styles.sectionsContainer}>
 
-                    {/* Info Card: Taller */}
                     <SectionCard title="Taller" icon="business-outline">
                         <Text style={styles.workshopName}>{appointment.workshop?.name}</Text>
                         <View style={styles.infoRow}>
@@ -221,7 +215,6 @@ export default function ClientAppointmentDetailsScreen() {
                         )}
                     </SectionCard>
 
-                    {/* Info Card: Vehículo */}
                     <SectionCard title="Vehículo" icon="car-outline">
                         <View style={styles.vehicleHeader}>
                             <View style={styles.vehicleIconBox}>
@@ -238,7 +231,6 @@ export default function ClientAppointmentDetailsScreen() {
                         </View>
                     </SectionCard>
 
-                    {/* Info Card: Servicio y Horario */}
                     <SectionCard title="Servicio y Horario" icon="time-outline">
                         <View style={styles.serviceBox}>
                             <Text style={styles.serviceName}>{appointment.service?.name}</Text>
@@ -275,7 +267,6 @@ export default function ClientAppointmentDetailsScreen() {
                         )}
                     </SectionCard>
 
-                    {/* Actions */}
                     {(appointment.status === 'scheduled' || appointment.status === 'confirmed') && (
                         <TouchableOpacity
                             style={[styles.cancelButton, cancelling && { opacity: 0.7 }]}

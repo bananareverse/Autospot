@@ -6,7 +6,6 @@ import { Platform } from 'react-native';
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
 
-// Adapter safely handles environments where 'window' is not defined (like Node.js during build)
 const ExpoStorage = {
   getItem: (key: string) => {
     if (typeof window === 'undefined') {

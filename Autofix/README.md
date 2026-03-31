@@ -1,50 +1,44 @@
-# Welcome to your Expo app 👋
+# AutoSpot - Gestión Integral de Talleres
+Plataforma premium para la administración de citas y comunicación en tiempo real entre talleres mecánicos y clientes.
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
 
-## Get started
+## ✨ Características Principales
+- **Dashboard de Taller:** Gestión de agenda diaria, actualización de estados de reparación y control de servicios.
+- **Portal de Cliente:** Búsqueda de talleres por geolocalización, registro de vehículos y seguimiento detallado de citas.
+- **Mensajería en Tiempo Real:** Chat directo entre el taller y el cliente integrado en cada cita.
+- **Diseño Premium:** Interfaz de usuario moderna, fluida y adaptada para dispositivos móviles.
 
-1. Install dependencies
+## 🛠️ Stack Tecnológico
+- **Framework:** [Expo](https://expo.dev) / React Native
+- **Navegación:** [Expo Router](https://docs.expo.dev/router/introduction/) (Routing basado en archivos)
+- **Backend:** [Supabase](https://supabase.com) (Base de datos PostgreSQL, Auth y Realtime)
+- **Estado:** Context API para manejo de autenticación global.
 
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
+### 1. Instalación
+Clona el repositorio y accede a la carpeta del proyecto:
 ```bash
-npm run reset-project
+git clone [tu-url-del-repo]
+cd Autofix
+npm install
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+### 2. Configuración de Variables de Entorno
+Crea un archivo `.env` en la raíz de la carpeta `Autofix` y añade tus credenciales de Supabase:
+```env
+EXPO_PUBLIC_SUPABASE_URL=https://tu-proyecto.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=tu-clave-anonima-publica
+```
 
-## Learn more
+### 3. Ejecución
+Inicia el servidor de desarrollo de Expo:
+```bash
+npx expo start
+```
+Puedes usar **Expo Go** en tu dispositivo físico o un emulador de Android/iOS.
 
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## Estructura de Carpetas
+- `/app`: Rutas y pantallas de la aplicación.
+- `/components`: Elementos de UI reutilizables y tematizados.
+- `/ctx`: Lógica de autenticación vinculada a Supabase.
+- `/lib`: Clientes de API y configuraciones base.
+- `/supabase`: Archivos relacionados con el esquema de la base de datos.

@@ -52,7 +52,6 @@ export default function ChatScreen() {
 
     const loadMessages = async () => {
         try {
-            // Cargar en orden descendente para el modo inverted
             const { data, error } = await supabase
                 .from('messages')
                 .select('*')
@@ -76,7 +75,6 @@ export default function ChatScreen() {
                 table: 'messages',
                 filter: `appointment_id=eq.${appointmentId}` 
             }, (payload) => {
-                // Añadir al principio del array (abajo visualmente en modo inverted)
                 setMessages((current) => [payload.new, ...current]);
             })
             .subscribe();
@@ -149,7 +147,7 @@ export default function ChatScreen() {
                     <FlatList
                         ref={flatListRef}
                         data={messages}
-                        inverted={true} // El modo inverted soluciona que se vea "muy abajo"
+                        inverted={true}
                         keyExtractor={(item) => item.id}
                         renderItem={renderMessage}
                         contentContainerStyle={styles.listContent}

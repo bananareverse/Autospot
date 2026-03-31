@@ -141,7 +141,7 @@ export default function WorkshopAppointmentDetails() {
                     <RefreshControl refreshing={loading} onRefresh={loadAppointment} tintColor={THEME.primary} colors={[THEME.primary]} />
                 }
             >
-                {/* Header Section */}
+
                 <LinearGradient colors={[THEME.secondary, THEME.primary]} style={styles.header}>
                     <View style={styles.headerTop}>
                         <TouchableOpacity style={styles.backButtonCompact} onPress={() => router.back()}>
@@ -171,7 +171,6 @@ export default function WorkshopAppointmentDetails() {
                 </LinearGradient>
 
                 <View style={styles.body}>
-                    {/* Controles Unificados (BASIC visually as requested) */}
                     <View style={styles.controlsSection}>
                         <Text style={styles.sectionTitle}>ACTUALIZAR ESTADO</Text>
                         <View style={styles.controlsGrid}>
@@ -183,7 +182,6 @@ export default function WorkshopAppointmentDetails() {
                         </View>
                     </View>
 
-                    {/* Progress History - 5 steps for Consistency */}
                     <View style={styles.sectionCard}>
                         <View style={styles.progressTracker}>
                              {['scheduled', 'on_hold', 'in_progress', 'ready', 'completed'].map((stepKey, idx) => {
@@ -206,9 +204,7 @@ export default function WorkshopAppointmentDetails() {
                         </View>
                     </View>
 
-                    {/* Information Cards */}
                     <View style={styles.infoGrid}>
-                        {/* Client Info */}
                         <View style={styles.infoCard}>
                             <View style={styles.cardHeader}>
                                 <Ionicons name="person" size={16} color={THEME.primary} />
@@ -221,7 +217,6 @@ export default function WorkshopAppointmentDetails() {
                             </TouchableOpacity>
                         </View>
 
-                        {/* Vehicle Info */}
                         <View style={styles.infoCard}>
                             <View style={styles.cardHeader}>
                                 <Ionicons name="car" size={16} color={THEME.primary} />
@@ -234,7 +229,6 @@ export default function WorkshopAppointmentDetails() {
                         </View>
                     </View>
 
-                    {/* Service & Notes */}
                     <View style={styles.sectionCard}>
                         <View style={styles.cardHeader}>
                             <Ionicons name="construct" size={16} color={THEME.primary} />
@@ -262,7 +256,6 @@ export default function WorkshopAppointmentDetails() {
                         </TouchableOpacity>
                     </View>
 
-                    {/* Danger Zone (Cancelar Cita) */}
                     <TouchableOpacity 
                         style={styles.cancelLink} 
                         onPress={() => {

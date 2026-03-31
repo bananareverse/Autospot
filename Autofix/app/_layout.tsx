@@ -21,21 +21,17 @@ function RootLayoutNav() {
     if (isLoading) return;
 
     const inAuthGroup = segments[0] === '(auth)';
-    // Check if we are on the root index route
     const onHomeScreen = (segments.length as number) === 0 || 
                          (segments[0] === '(tabs)' && segments.length === 1) ||
                          (segments[0] === '(tabs)' && segments[1] === '' as any) ||
                          (segments[0] === '(tabs)' && segments[1] === 'index' as any);
 
     if (!session && !inAuthGroup) {
-      // Redirect to the login page if not logged in
       router.replace('/(auth)/login');
     } else if (session) {
       if (inAuthGroup) {
-        // If logged in and in auth, go to main area
         router.replace(isWorkshop ? '/(tabs)/agenda' : '/(tabs)');
       } else if (onHomeScreen && isWorkshop) {
-        // If workshop lands on client home, redirect to agenda
         router.replace('/(tabs)/agenda');
       }
     }
