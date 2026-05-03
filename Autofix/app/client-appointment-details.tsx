@@ -5,32 +5,18 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Dimensions, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useAppTheme } from '@/hooks/useAppTheme';
 
 const { width } = Dimensions.get('window');
 
-const THEME = {
-    primary: '#219ebc',
-    secondary: '#023047',
-    accent: '#fb8500',
-    bg: '#FFFFFF',
-    card: '#F9FAFB',
-    text: '#1F2937',
-    textMuted: '#6B7280',
-    border: '#E5E7EB',
-    white: '#FFFFFF',
-    danger: '#EF4444',
-    success: '#10B981',
-    warning: '#F59E0B',
-};
-
-const STATUS_CONFIG: Record<string, { label: string; color: string; icon: any; step: number }> = {
-    scheduled: { label: 'Programada', color: THEME.primary, icon: 'calendar', step: 1 },
+const getStatusConfig = (theme: any): Record<string, { label: string; color: string; icon: any; step: number }> => ({
+    scheduled: { label: 'Programada', color: theme.primary, icon: 'calendar', step: 1 },
     confirmed: { label: 'Confirmada', color: '#06B6D4', icon: 'checkmark-done', step: 2 },
-    in_progress: { label: 'En Proceso', color: THEME.accent, icon: 'construct', step: 3 },
-    ready: { label: 'Lista', color: THEME.success, icon: 'sparkles', step: 4 },
+    in_progress: { label: 'En Proceso', color: theme.accent, icon: 'construct', step: 3 },
+    ready: { label: 'Lista', color: theme.success, icon: 'sparkles', step: 4 },
     completed: { label: 'Completada', color: '#6366F1', icon: 'flag', step: 5 },
-    cancelled: { label: 'Cancelada', color: THEME.danger, icon: 'close-circle', step: 0 },
-};
+    cancelled: { label: 'Cancelada', color: theme.danger, icon: 'close-circle', step: 0 },
+});
 
 export default function ClientAppointmentDetailsScreen() {
     const params = useLocalSearchParams();
@@ -43,6 +29,9 @@ export default function ClientAppointmentDetailsScreen() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [cancelling, setCancelling] = useState(false);
+
+    const theme = useAppTheme();
+    const styles = getStyles(theme);
 
     useEffect(() => {
         loadDetails();
@@ -121,7 +110,7 @@ export default function ClientAppointmentDetailsScreen() {
     if (loading) {
         return (
             <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color={THEME.primary} />
+                <ActivityIndicator size="large" color={theme.primary} />
             </View>
         );
     }
@@ -129,7 +118,7 @@ export default function ClientAppointmentDetailsScreen() {
     if (error || !appointment) {
         return (
             <View style={styles.errorContainer}>
-                <Ionicons name="alert-circle" size={60} color={THEME.danger} />
+                <Ionicons name="alert-circle" size={60} color={theme.danger} />
                 <Text style={styles.errorText}>{error || 'Cita no encontrada'}</Text>
                 <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
                     <Text style={styles.backButtonText}>Volver</Text>
@@ -138,7 +127,7 @@ export default function ClientAppointmentDetailsScreen() {
         );
     }
 
-    const currentStatus = STATUS_CONFIG[appointment.status] || STATUS_CONFIG.scheduled;
+    const currentStatus = getStatusConfig(theme)[appointment.status] || getStatusConfig(theme).scheduled;
 
     return (
         <View style={styles.container}>
@@ -146,7 +135,7 @@ export default function ClientAppointmentDetailsScreen() {
             <Stack.Screen options={{ headerShown: false }} />
 
             <LinearGradient
-                colors={[THEME.secondary, THEME.primary]}
+                colors={[theme.secondary, theme.primary]}
                 style={styles.headerGradient}
             />
 
@@ -201,24 +190,24 @@ export default function ClientAppointmentDetailsScreen() {
 
                 <View style={styles.sectionsContainer}>
 
-                    <SectionCard title="Taller" icon="business-outline">
+                    <SectionCard title="Taller" icon="business-outline" theme={theme} styles={styles}>
                         <Text style={styles.workshopName}>{appointment.workshop?.name}</Text>
                         <View style={styles.infoRow}>
-                            <Ionicons name="location-outline" size={16} color={THEME.textMuted} />
+                            <Ionicons name="location-outline" size={16} color={theme.textMuted} />
                             <Text style={styles.infoValueText}>{appointment.workshop?.address}</Text>
                         </View>
                         {appointment.workshop?.phone && (
                             <View style={[styles.infoRow, { marginTop: 8 }]}>
-                                <Ionicons name="call-outline" size={16} color={THEME.textMuted} />
+                                <Ionicons name="call-outline" size={16} color={theme.textMuted} />
                                 <Text style={styles.infoValueText}>{appointment.workshop?.phone}</Text>
                             </View>
                         )}
                     </SectionCard>
 
-                    <SectionCard title="Vehículo" icon="car-outline">
+                    <SectionCard title="Vehículo" icon="car-outline" theme={theme} styles={styles}>
                         <View style={styles.vehicleHeader}>
                             <View style={styles.vehicleIconBox}>
-                                <Ionicons name="car" size={30} color={THEME.primary} />
+                                <Ionicons name="car" size={30} color={theme.primary} />
                             </View>
                             <View>
                                 <Text style={styles.vehicleModel}>{appointment.vehicle?.make} {appointment.vehicle?.model}</Text>
@@ -226,12 +215,12 @@ export default function ClientAppointmentDetailsScreen() {
                             </View>
                         </View>
                         <View style={styles.badgeRow}>
-                            <TextBadge label={appointment.vehicle?.year?.toString()} icon="calendar" />
-                            <TextBadge label={appointment.vehicle?.color} icon="color-palette" />
+                            <TextBadge label={appointment.vehicle?.year?.toString()} icon="calendar" theme={theme} styles={styles} />
+                            <TextBadge label={appointment.vehicle?.color} icon="color-palette" theme={theme} styles={styles} />
                         </View>
                     </SectionCard>
 
-                    <SectionCard title="Servicio y Horario" icon="time-outline">
+                    <SectionCard title="Servicio y Horario" icon="time-outline" theme={theme} styles={styles}>
                         <View style={styles.serviceBox}>
                             <Text style={styles.serviceName}>{appointment.service?.name}</Text>
                             <Text style={styles.servicePrice}>${appointment.final_price?.toLocaleString() || '0.00'}</Text>
@@ -239,7 +228,7 @@ export default function ClientAppointmentDetailsScreen() {
 
                         <View style={styles.dateTimeContainer}>
                             <View style={styles.dateTimeItem}>
-                                <Ionicons name="calendar-clear" size={18} color={THEME.primary} />
+                                <Ionicons name="calendar-clear" size={18} color={theme.primary} />
                                 <View>
                                     <Text style={styles.dateTimeLabel}>Fecha</Text>
                                     <Text style={styles.dateTimeValue}>
@@ -249,7 +238,7 @@ export default function ClientAppointmentDetailsScreen() {
                             </View>
                             <View style={styles.dateTimeDivider} />
                             <View style={styles.dateTimeItem}>
-                                <Ionicons name="time" size={18} color={THEME.primary} />
+                                <Ionicons name="time" size={18} color={theme.primary} />
                                 <View>
                                     <Text style={styles.dateTimeLabel}>Hora</Text>
                                     <Text style={styles.dateTimeValue}>
@@ -273,7 +262,7 @@ export default function ClientAppointmentDetailsScreen() {
                             onPress={handleCancel}
                             disabled={cancelling}
                         >
-                            <Ionicons name="close-circle-outline" size={20} color={THEME.danger} />
+                            <Ionicons name="close-circle-outline" size={20} color={theme.danger} />
                             <Text style={styles.cancelButtonText}>{cancelling ? 'Cancelando...' : 'Cancelar Cita'}</Text>
                         </TouchableOpacity>
                     )}
@@ -284,11 +273,11 @@ export default function ClientAppointmentDetailsScreen() {
     );
 }
 
-function SectionCard({ title, icon, children }: any) {
+function SectionCard({ title, icon, children, theme, styles }: any) {
     return (
         <View style={styles.card}>
             <View style={styles.cardHeader}>
-                <Ionicons name={icon} size={20} color={THEME.primary} />
+                <Ionicons name={icon} size={20} color={theme.primary} />
                 <Text style={styles.cardHeaderTitle}>{title.toUpperCase()}</Text>
             </View>
             <View style={styles.cardBody}>{children}</View>
@@ -296,37 +285,37 @@ function SectionCard({ title, icon, children }: any) {
     );
 }
 
-function TextBadge({ label, icon }: { label: string; icon: any }) {
+function TextBadge({ label, icon, theme, styles }: { label: string; icon: any; theme: any; styles: any }) {
     if (!label) return null;
     return (
         <View style={styles.badge}>
-            <Ionicons name={icon} size={12} color={THEME.textMuted} />
+            <Ionicons name={icon} size={12} color={theme.textMuted} />
             <Text style={styles.badgeText}>{label}</Text>
         </View>
     );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: THEME.bg,
+        backgroundColor: theme.bg,
     },
     loadingContainer: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: THEME.bg,
+        backgroundColor: theme.bg,
     },
     errorContainer: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
         padding: 40,
-        backgroundColor: THEME.bg,
+        backgroundColor: theme.bg,
     },
     errorText: {
         fontSize: 18,
-        color: THEME.secondary,
+        color: theme.text,
         textAlign: 'center',
         marginTop: 20,
         fontWeight: 'bold',
@@ -335,7 +324,7 @@ const styles = StyleSheet.create({
         marginTop: 30,
         paddingHorizontal: 30,
         paddingVertical: 12,
-        backgroundColor: THEME.primary,
+        backgroundColor: theme.primary,
         borderRadius: 12,
     },
     backButtonText: {
@@ -380,7 +369,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
-        backgroundColor: THEME.primary,
+        backgroundColor: theme.primary,
         paddingHorizontal: 16,
         paddingVertical: 8,
         borderRadius: 20,
@@ -392,19 +381,19 @@ const styles = StyleSheet.create({
         fontSize: 13,
     },
     statusCard: {
-        backgroundColor: 'white',
+        backgroundColor: theme.card,
         marginHorizontal: 24,
         borderRadius: 24,
         padding: 24,
         alignItems: 'center',
         elevation: 8,
-        shadowColor: THEME.secondary,
+        shadowColor: theme.bg === '#111827' ? '#000000' : theme.secondary,
         shadowOffset: { width: 0, height: 10 },
         shadowOpacity: 0.1,
         shadowRadius: 20,
         marginBottom: 24,
         borderWidth: 1,
-        borderColor: THEME.border,
+        borderColor: theme.border,
     },
     statusBadge: {
         flexDirection: 'row',
@@ -422,7 +411,7 @@ const styles = StyleSheet.create({
     },
     appointmentId: {
         fontSize: 12,
-        color: THEME.textMuted,
+        color: theme.textMuted,
         fontWeight: 'bold',
     },
     timelineContainer: {
@@ -444,24 +433,24 @@ const styles = StyleSheet.create({
         zIndex: 1,
     },
     timelineStepInactive: {
-        backgroundColor: '#E5E7EB',
+        backgroundColor: theme.border,
     },
     timelineLine: {
         width: (width - 150) / 4,
         height: 3,
     },
     timelineLineInactive: {
-        backgroundColor: '#F3F4F6',
+        backgroundColor: theme.bg,
     },
     sectionsContainer: {
         paddingHorizontal: 24,
     },
     card: {
-        backgroundColor: 'white',
+        backgroundColor: theme.card,
         borderRadius: 20,
         marginBottom: 20,
         borderWidth: 1,
-        borderColor: THEME.border,
+        borderColor: theme.border,
         overflow: 'hidden',
     },
     cardHeader: {
@@ -469,15 +458,15 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         paddingHorizontal: 16,
         paddingVertical: 12,
-        backgroundColor: '#F9FAFB',
+        backgroundColor: theme.bg,
         borderBottomWidth: 1,
-        borderBottomColor: '#F3F4F6',
+        borderBottomColor: theme.border,
         gap: 10,
     },
     cardHeaderTitle: {
         fontSize: 12,
         fontWeight: '900',
-        color: THEME.secondary,
+        color: theme.text,
         letterSpacing: 1,
     },
     cardBody: {
@@ -486,7 +475,7 @@ const styles = StyleSheet.create({
     workshopName: {
         fontSize: 18,
         fontWeight: 'bold',
-        color: THEME.secondary,
+        color: theme.text,
         marginBottom: 6,
     },
     infoRow: {
@@ -496,7 +485,7 @@ const styles = StyleSheet.create({
     },
     infoValueText: {
         fontSize: 14,
-        color: THEME.textMuted,
+        color: theme.textMuted,
         flex: 1,
         lineHeight: 20,
     },
@@ -517,11 +506,11 @@ const styles = StyleSheet.create({
     vehicleModel: {
         fontSize: 18,
         fontWeight: 'bold',
-        color: THEME.secondary,
+        color: theme.text,
     },
     vehiclePlate: {
         fontSize: 14,
-        color: THEME.primary,
+        color: theme.primary,
         fontWeight: '900',
         letterSpacing: 1,
         marginTop: 2,
@@ -535,13 +524,13 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         paddingHorizontal: 12,
         paddingVertical: 6,
-        backgroundColor: '#F3F4F6',
+        backgroundColor: theme.bg,
         borderRadius: 10,
         gap: 6,
     },
     badgeText: {
         fontSize: 12,
-        color: THEME.textMuted,
+        color: theme.textMuted,
         fontWeight: 'bold',
     },
     serviceBox: {
@@ -549,28 +538,28 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
         marginBottom: 20,
-        backgroundColor: '#F9FAFB',
+        backgroundColor: theme.bg,
         padding: 16,
         borderRadius: 15,
     },
     serviceName: {
         fontSize: 16,
         fontWeight: 'bold',
-        color: THEME.secondary,
+        color: theme.text,
         flex: 1,
     },
     servicePrice: {
         fontSize: 18,
         fontWeight: '900',
-        color: THEME.primary,
+        color: theme.primary,
     },
     dateTimeContainer: {
         flexDirection: 'row',
-        backgroundColor: '#FFFFFF',
+        backgroundColor: theme.card,
         borderRadius: 15,
         padding: 16,
         borderWidth: 1,
-        borderColor: '#F3F4F6',
+        borderColor: theme.border,
         justifyContent: 'space-around',
     },
     dateTimeItem: {
@@ -580,19 +569,19 @@ const styles = StyleSheet.create({
     },
     dateTimeLabel: {
         fontSize: 11,
-        color: THEME.textMuted,
+        color: theme.textMuted,
         fontWeight: 'bold',
         textTransform: 'uppercase',
     },
     dateTimeValue: {
         fontSize: 14,
         fontWeight: 'bold',
-        color: THEME.secondary,
+        color: theme.text,
     },
     dateTimeDivider: {
         width: 1,
         height: '100%',
-        backgroundColor: '#F3F4F6',
+        backgroundColor: theme.border,
     },
     notesBox: {
         marginTop: 20,
@@ -600,17 +589,17 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(251, 133, 0, 0.05)',
         borderRadius: 15,
         borderLeftWidth: 4,
-        borderLeftColor: THEME.accent,
+        borderLeftColor: theme.accent,
     },
     notesLabel: {
         fontSize: 12,
         fontWeight: 'bold',
-        color: THEME.accent,
+        color: theme.accent,
         marginBottom: 4,
     },
     notesText: {
         fontSize: 14,
-        color: THEME.text,
+        color: theme.text,
         lineHeight: 20,
     },
     cancelButton: {
@@ -626,7 +615,7 @@ const styles = StyleSheet.create({
         gap: 10,
     },
     cancelButtonText: {
-        color: THEME.danger,
+        color: theme.danger,
         fontWeight: 'bold',
         fontSize: 16,
     }

@@ -16,17 +16,7 @@ import MapView, { Marker } from "react-native-maps";
 import MapViewDirections from "react-native-maps-directions";
 import { Ionicons } from '@expo/vector-icons';
 
-const THEME = {
-  primary: '#219ebc',    
-  secondary: '#023047',  
-  accent: '#fb8500',     
-  bg: '#FFFFFF',
-  card: '#F9FAFB',
-  text: '#1F2937',
-  textMuted: '#6B7280',
-  border: '#E5E7EB',
-  success: '#10B981',
-};
+import { useAppTheme } from '@/hooks/useAppTheme';
 
 interface Workshop {
   id: string;
@@ -40,6 +30,9 @@ interface Workshop {
 }
 
 export default function MapScreen() {
+  const theme = useAppTheme();
+  const styles = getStyles(theme);
+
   const { workshopId } = useLocalSearchParams<{ workshopId?: string | string[] }>();
   const [userLocation, setUserLocation] = useState<Location.LocationObjectCoords | null>(null);
   const [workshops, setWorkshops] = useState<Workshop[]>([]);
@@ -178,7 +171,7 @@ export default function MapScreen() {
             }}
             apikey="AIzaSyDg8i6hdakgcXJoN9YLBFKPYWWOvaFypvo"
             strokeWidth={4}
-            strokeColor={THEME.primary}
+            strokeColor={theme.primary}
           />
         )}
         {workshops.filter(w => w.latitude != null && w.longitude != null).map((workshop) => (
@@ -190,7 +183,7 @@ export default function MapScreen() {
             }}
             title={workshop.name}
             pinColor={
-              selectedWorkshop?.id === workshop.id ? THEME.primary : THEME.accent
+              selectedWorkshop?.id === workshop.id ? theme.primary : theme.accent
             }
             onPress={() => {
               setSelectedWorkshop(workshop);
@@ -246,16 +239,16 @@ export default function MapScreen() {
               >
                 <View style={styles.cardHeader}>
                   <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
-                  {isSelected && <Ionicons name="checkmark-circle" size={20} color={THEME.primary} />}
+                  {isSelected && <Ionicons name="checkmark-circle" size={20} color={theme.primary} />}
                 </View>
 
                 <View style={styles.metaRow}>
                   <View style={styles.metaBadge}>
-                    <Ionicons name="location" size={14} color={THEME.primary} />
+                    <Ionicons name="location" size={14} color={theme.primary} />
                     <Text style={styles.metaText}>{item.distance.toFixed(2)} km</Text>
                   </View>
                   <View style={styles.metaBadge}>
-                    <Ionicons name="star" size={14} color={THEME.accent} />
+                    <Ionicons name="star" size={14} color={theme.accent} />
                     <Text style={styles.metaText}>{item.rating ?? 'N/A'} ({item.total_reviews ?? 0})</Text>
                   </View>
                 </View>
@@ -268,7 +261,7 @@ export default function MapScreen() {
                     }
                     style={styles.outlineButton}
                   >
-                    <Ionicons name="business-outline" size={18} color={THEME.secondary} />
+                    <Ionicons name="business-outline" size={18} color={theme.secondary} />
                     <Text style={styles.outlineButtonText}>Perfil</Text>
                   </TouchableOpacity>
 
@@ -302,7 +295,7 @@ export default function MapScreen() {
 
 const { width } = Dimensions.get("window");
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
   container: { flex: 1 },
   map: { flex: 1 },
   listContainer: {
@@ -311,13 +304,13 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   card: {
-    backgroundColor: THEME.card,
+    backgroundColor: theme.card,
     padding: 20,
     borderRadius: 24,
     marginHorizontal: 10,
     width: width * 0.85,
     borderWidth: 1,
-    borderColor: THEME.border,
+    borderColor: theme.border,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.1,
@@ -325,9 +318,9 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   selectedCard: {
-    borderColor: THEME.primary,
+    borderColor: theme.primary,
     borderWidth: 2,
-    backgroundColor: THEME.bg,
+    backgroundColor: theme.bg,
     shadowOpacity: 0.2,
     elevation: 8,
   },
@@ -340,7 +333,7 @@ const styles = StyleSheet.create({
   name: {
     fontWeight: "900",
     fontSize: 18,
-    color: THEME.secondary,
+    color: theme.secondary,
     flex: 1,
     marginRight: 10,
   },
@@ -353,16 +346,16 @@ const styles = StyleSheet.create({
   metaBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: THEME.bg,
+    backgroundColor: theme.bg,
     borderWidth: 1,
-    borderColor: THEME.border,
+    borderColor: theme.border,
     paddingHorizontal: 8,
     paddingVertical: 5,
     borderRadius: 12,
     gap: 6,
   },
   metaText: {
-    color: THEME.text,
+    color: theme.text,
     fontSize: 13,
     fontWeight: 'bold',
   },
@@ -376,13 +369,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
-    borderColor: THEME.secondary,
+    borderColor: theme.secondary,
     paddingVertical: 10,
     borderRadius: 14,
     gap: 6,
   },
   outlineButtonText: {
-    color: THEME.secondary,
+    color: theme.secondary,
     fontWeight: '800',
     fontSize: 14,
   },
@@ -391,11 +384,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: THEME.primary,
+    backgroundColor: theme.primary,
     paddingVertical: 10,
     borderRadius: 14,
     gap: 6,
-    shadowColor: THEME.primary,
+    shadowColor: theme.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -406,4 +399,4 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     fontSize: 14,
   },
-});
+});

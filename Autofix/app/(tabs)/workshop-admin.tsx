@@ -18,6 +18,7 @@ import {
   View
 } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
+import { useAppTheme } from '@/hooks/useAppTheme';
 const { width, height } = Dimensions.get('window');
 
 type WorkshopContext = {
@@ -45,18 +46,7 @@ type WorkshopService = {
   active: boolean;
 };
 
-const THEME = {
-  bg: '#FFFFFF',
-  text: '#111827',
-  textSoft: '#6B7280',
-  primary: '#219ebc',
-  secondary: '#023047',
-  accent: '#8ecae6',
-  card: '#F9FAFB',
-  border: '#E5E7EB',
-  danger: '#EF4444',
-  success: '#10B981',
-};
+
 
 const CATEGORIES = [
   'Mecánica General',
@@ -80,6 +70,8 @@ const PAYMENT_METHODS = [
 
 export default function WorkshopAdminScreen() {
   const { isWorkshop, role } = useAuth();
+  const theme = useAppTheme();
+  const styles = getStyles(theme);
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -92,6 +84,12 @@ export default function WorkshopAdminScreen() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingService, setEditingService] = useState<WorkshopService | null>(null);
   const [editingPrice, setEditingPrice] = useState('');
+  const [allPartners, setAllPartners] = useState<any[]>([]);
+  const [workshopPartnersIds, setWorkshopPartnersIds] = useState<string[]>([]);
+  const [isManagingAlliances, setIsManagingAlliances] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [workshopFullData, setWorkshopFullData] = useState<any>(null);
+  const [profileForm, setProfileForm] = useState({ name: '', phone: '' });
 
   // Registration State
   const [showRegistration, setShowRegistration] = useState(false);
@@ -118,7 +116,15 @@ export default function WorkshopAdminScreen() {
       }
       setCtx(context);
 
-      const [{ data: appointmentData }, { data: serviceData }, { data: workshopServiceData }] = await Promise.all([
+      const [
+        { data: workshopData },
+        { data: appointmentData }, 
+        { data: serviceData }, 
+        { data: workshopServiceData }, 
+        { data: allPartnersData }, 
+        { data: wpData }
+      ] = await Promise.all([
+        supabase.from('workshops').select('*').eq('id', context.workshopId).single(),
         supabase
           .from('appointments')
           .select(`
@@ -149,10 +155,22 @@ export default function WorkshopAdminScreen() {
           `)
           .eq('workshop_id', context.workshopId)
           .eq('active', true),
+        supabase
+          .from('partners')
+          .select('*')
+          .order('name', { ascending: true }),
+        supabase
+          .from('workshop_partners')
+          .select('partner_id')
+          .eq('workshop_id', context.workshopId)
       ]);
 
+      setWorkshopFullData(workshopData);
+      setProfileForm({ name: workshopData?.name || '', phone: workshopData?.phone || '' });
       setAppointments((appointmentData || []) as Appointment[]);
       setServices((serviceData || []) as Service[]);
+      setAllPartners(allPartnersData || []);
+      setWorkshopPartnersIds((wpData || []).map((wp: any) => wp.partner_id));
       setWorkshopServices((workshopServiceData || []).map((ws: any) => ({
         id: ws.id,
         service_id: ws.service_id,
@@ -371,13 +389,68 @@ export default function WorkshopAdminScreen() {
     }));
   };
 
+  async function handleUpdateProfile() {
+    if (!ctx) return;
+    try {
+      setSaving(true);
+      const { error } = await supabase
+        .from('workshops')
+        .update({
+          name: profileForm.name,
+          phone: profileForm.phone
+        })
+        .eq('id', ctx.workshopId);
+
+      if (error) throw error;
+      
+      Alert.alert('Éxito', 'Perfil actualizado correctamente.');
+      setShowProfileModal(false);
+      loadData();
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'No se pudo actualizar el perfil.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function toggleAlliance(partnerId: string, isLinked: boolean) {
+    if (!ctx) return;
+    try {
+      setSaving(true);
+      if (isLinked) {
+        // Eliminar
+        const { error } = await supabase
+          .from('workshop_partners')
+          .delete()
+          .eq('workshop_id', ctx.workshopId)
+          .eq('partner_id', partnerId);
+        if (error) throw error;
+      } else {
+        // Agregar
+        const { error } = await supabase
+          .from('workshop_partners')
+          .insert({
+            workshop_id: ctx.workshopId,
+            partner_id: partnerId,
+            benefit_description: 'Convenio activo'
+          });
+        if (error) throw error;
+      }
+      loadData(); // Recargar para ver cambios
+    } catch (e) {
+      Alert.alert('Error', 'No se pudo actualizar la alianza.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
   // --- RENDERING ---
 
   if (loading) {
     return (
       <View style={styles.center}>
         <Stack.Screen options={{ title: 'Mi Taller' }} />
-        <ActivityIndicator size="large" color={THEME.primary} />
+        <ActivityIndicator size="large" color={theme.primary} />
       </View>
     );
   }
@@ -388,7 +461,7 @@ export default function WorkshopAdminScreen() {
       <View style={styles.containerNoPadding}>
         <Stack.Screen options={{ headerShown: false }} />
         <LinearGradient
-          colors={[THEME.secondary, THEME.primary]}
+          colors={[theme.secondary, theme.primary]}
           style={styles.hero}
         >
           <View style={styles.heroContent}>
@@ -405,15 +478,15 @@ export default function WorkshopAdminScreen() {
         <View style={styles.onboardingBody}>
           <Text style={styles.sectionTitle}>¿Por qué unirse?</Text>
           <View style={styles.featureRow}>
-            <Ionicons name="calendar-outline" size={24} color={THEME.primary} />
+            <Ionicons name="calendar-outline" size={24} color={theme.primary} />
             <Text style={styles.featureText}>Agenda digital de citas para tus clientes.</Text>
           </View>
           <View style={styles.featureRow}>
-            <Ionicons name="map-outline" size={24} color={THEME.primary} />
+            <Ionicons name="map-outline" size={24} color={theme.primary} />
             <Text style={styles.featureText}>Aparece en el mapa de servicios cercanos.</Text>
           </View>
           <View style={styles.featureRow}>
-            <Ionicons name="stats-chart-outline" size={24} color={THEME.primary} />
+            <Ionicons name="stats-chart-outline" size={24} color={theme.primary} />
             <Text style={styles.featureText}>Control de historial y gestión de inventario.</Text>
           </View>
 
@@ -442,7 +515,7 @@ export default function WorkshopAdminScreen() {
               key={s}
               style={[
                 styles.stepDot,
-                step >= s && { backgroundColor: THEME.primary },
+                step >= s && { backgroundColor: theme.primary },
                 step === s && { width: 30 }
               ]}
             />
@@ -576,7 +649,7 @@ export default function WorkshopAdminScreen() {
               />
 
               <View style={styles.summaryCard}>
-                <Ionicons name="information-circle" size={20} color={THEME.primary} />
+                <Ionicons name="information-circle" size={20} color={theme.primary} />
                 <Text style={styles.summaryText}>
                   Al registrarte, tu taller aparecerá automáticamente en el mapa para todos los usuarios.
                 </Text>
@@ -630,7 +703,7 @@ export default function WorkshopAdminScreen() {
 
       {/* Gradient Background - same as profile.tsx */}
       <LinearGradient
-        colors={[THEME.secondary, THEME.primary]}
+        colors={[theme.secondary, theme.primary]}
         style={styles.headerGradient}
       />
 
@@ -642,14 +715,25 @@ export default function WorkshopAdminScreen() {
           <View style={styles.adminHeader}>
             {/* Title on gradient - same as profile */}
             <View style={styles.panelHeader}>
-              <Text style={styles.panelTitle}>Panel de Control</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.panelTitle}>Panel de Control</Text>
+                <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14 }}>{workshopFullData?.name || 'Cargando...'}</Text>
+              </View>
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <TouchableOpacity onPress={() => setShowProfileModal(true)} style={styles.refreshBtn}>
+                  <Ionicons name="pencil" size={20} color="white" />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={loadData} disabled={loading} style={styles.refreshBtn}>
+                  <Ionicons name="refresh" size={20} color="white" />
+                </TouchableOpacity>
+              </View>
             </View>
 
             {/* Stats bar directly under title */}
             <View style={styles.statsBar}>
               <View style={styles.statItem}>
                 <View style={styles.statIconBox}>
-                  <Ionicons name="calendar-clear" size={20} color={THEME.primary} />
+                  <Ionicons name="calendar-clear" size={20} color={theme.primary} />
                 </View>
                 <View>
                   <Text style={styles.statValue}>{activeCount}</Text>
@@ -661,7 +745,7 @@ export default function WorkshopAdminScreen() {
 
               <View style={styles.statItem}>
                 <View style={styles.statIconBox}>
-                  <Ionicons name="options" size={20} color={THEME.primary} />
+                  <Ionicons name="options" size={20} color={theme.primary} />
                 </View>
                 <View>
                   <Text style={styles.statValue}>{workshopServices.length}</Text>
@@ -692,7 +776,7 @@ export default function WorkshopAdminScreen() {
                         onPress={() => openEditServiceModal(ws)}
                         disabled={saving}
                       >
-                        <Ionicons name="pencil-outline" size={18} color={THEME.primary} />
+                        <Ionicons name="pencil-outline" size={18} color={theme.primary} />
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={styles.deleteServiceBtn}
@@ -805,10 +889,10 @@ export default function WorkshopAdminScreen() {
                     {(item as any).client?.first_name} {(item as any).client?.last_name}
                   </Text>
                   <Text style={styles.appointmentDetailRow}>
-                    <Ionicons name="car-outline" size={12} color={THEME.primary} /> {(item as any).vehicle?.make} {(item as any).vehicle?.model}
+                    <Ionicons name="car-outline" size={12} color={theme.primary} /> {(item as any).vehicle?.make} {(item as any).vehicle?.model}
                   </Text>
                   <Text style={styles.appointmentDetailRow}>
-                    <Ionicons name="construct-outline" size={12} color={THEME.primary} /> {(item as any).service?.name || 'Servicio General'}
+                    <Ionicons name="construct-outline" size={12} color={theme.primary} /> {(item as any).service?.name || 'Servicio General'}
                   </Text>
                 </View>
               </View>
@@ -827,12 +911,126 @@ export default function WorkshopAdminScreen() {
 
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Ionicons name="calendar-outline" size={48} color={THEME.border} />
+            <Ionicons name="calendar-outline" size={48} color={theme.border} />
             <Text style={styles.emptyText}>No hay citas registradas.</Text>
+          </View>
+        }
+        ListFooterComponent={
+          <View style={{ paddingHorizontal: 24, paddingBottom: 40 }}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Alianzas y Convenios</Text>
+              <TouchableOpacity onPress={() => setIsManagingAlliances(!isManagingAlliances)}>
+                <Text style={{ color: theme.primary, fontWeight: 'bold' }}>
+                  {isManagingAlliances ? 'Cerrar' : 'Configurar'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {isManagingAlliances ? (
+              <View style={styles.alliancesConfigBox}>
+                <Text style={styles.alliancesHint}>Toca las marcas con las que tienes convenio:</Text>
+                <View style={styles.alliancesGrid}>
+                  {allPartners.map((p) => {
+                    const isLinked = workshopPartnersIds.includes(p.id);
+                    return (
+                      <TouchableOpacity
+                        key={p.id}
+                        style={[styles.allianceToggle, isLinked && styles.allianceToggleActive]}
+                        onPress={() => toggleAlliance(p.id, isLinked)}
+                        disabled={saving}
+                      >
+                        <Ionicons 
+                          name={getPartnerIcon(p.type)} 
+                          size={16} 
+                          color={isLinked ? 'white' : theme.textSoft} 
+                        />
+                        <Text style={[styles.allianceToggleText, isLinked && { color: 'white' }]}>
+                          {p.name}
+                        </Text>
+                        {saving && isLinked && <ActivityIndicator size="small" color="white" />}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            ) : (
+              <View style={styles.alliancesPreview}>
+                <Ionicons name="ribbon-outline" size={20} color={theme.textSoft} />
+                <Text style={styles.alliancesPreviewText}>
+                  {workshopPartnersIds.length === 0 
+                    ? 'No has seleccionado alianzas aún.' 
+                    : `Tienes ${workshopPartnersIds.length} alianzas activas.`}
+                </Text>
+              </View>
+            )}
           </View>
         }
         contentContainerStyle={{ paddingBottom: 100 }}
       />
+
+      {/* Edit Profile Modal */}
+      <Modal
+        visible={showProfileModal}
+        transparent
+        animationType="fade"
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <TouchableOpacity onPress={() => setShowProfileModal(false)}>
+                <Ionicons name="close" size={24} color={theme.text} />
+              </TouchableOpacity>
+              <Text style={styles.modalTitle}>Editar Perfil del Taller</Text>
+              <View style={{ width: 24 }} />
+            </View>
+
+            <ScrollView style={styles.modalBody}>
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Nombre del Taller</Text>
+                <TextInput
+                  style={styles.formInput}
+                  value={profileForm.name}
+                  onChangeText={(val) => setProfileForm({ ...profileForm, name: val })}
+                  placeholder="Nombre de tu taller"
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Teléfono de Contacto</Text>
+                <TextInput
+                  style={styles.formInput}
+                  value={profileForm.phone}
+                  onChangeText={(val) => setProfileForm({ ...profileForm, phone: val })}
+                  placeholder="Ej. 8112345678"
+                  keyboardType="phone-pad"
+                />
+              </View>
+
+              <TouchableOpacity
+                style={[styles.modalPrimaryButton, saving && { opacity: 0.7 }]}
+                onPress={handleUpdateProfile}
+                disabled={saving}
+              >
+                {saving ? (
+                  <ActivityIndicator color="white" />
+                ) : (
+                  <>
+                    <Ionicons name="save-outline" size={20} color="white" />
+                    <Text style={styles.modalPrimaryButtonText}>Guardar Cambios</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.modalSecondaryButton}
+                onPress={() => setShowProfileModal(false)}
+              >
+                <Text style={styles.modalSecondaryButtonText}>Cancelar</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       {/* Edit Service Modal */}
       <Modal
@@ -844,7 +1042,7 @@ export default function WorkshopAdminScreen() {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <TouchableOpacity onPress={() => setShowEditModal(false)}>
-                <Ionicons name="chevron-back" size={24} color={THEME.text} />
+                <Ionicons name="chevron-back" size={24} color={theme.text} />
               </TouchableOpacity>
               <Text style={styles.modalTitle}>Editar Servicio</Text>
               <View style={{ width: 24 }} />
@@ -903,14 +1101,24 @@ export default function WorkshopAdminScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function getPartnerIcon(type: string): any {
+  switch (type) {
+    case 'insurance': return 'shield-checkmark';
+    case 'spare_parts': return 'construct';
+    case 'oil': return 'water';
+    case 'tyres': return 'disc';
+    default: return 'ribbon';
+  }
+}
+
+const getStyles = (theme: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.bg,
   },
   containerNoPadding: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.bg,
   },
   center: {
     flex: 1,
@@ -960,7 +1168,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: '900',
-    color: THEME.secondary,
+    color: theme.secondary,
     textTransform: 'uppercase',
     letterSpacing: 1.5,
     marginBottom: 16,
@@ -974,7 +1182,7 @@ const styles = StyleSheet.create({
   },
   featureText: {
     fontSize: 15,
-    color: THEME.textSoft,
+    color: theme.textSoft,
     flex: 1,
   },
   // WIZARD STYLES
@@ -988,7 +1196,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: THEME.border,
+    backgroundColor: theme.border,
   },
   animatedStep: {
     gap: 10,
@@ -996,35 +1204,36 @@ const styles = StyleSheet.create({
   stepTitle: {
     fontSize: 24,
     fontWeight: '800',
-    color: THEME.text,
+    color: theme.text,
   },
   stepSubtitle: {
     fontSize: 15,
-    color: THEME.textSoft,
+    color: theme.textSoft,
     marginBottom: 20,
   },
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: THEME.text,
+    color: theme.text,
     marginTop: 10,
   },
   labelSection: {
     fontSize: 16,
     fontWeight: '700',
-    color: THEME.text,
+    color: theme.text,
   },
   input: {
-    backgroundColor: 'white',
+    backgroundColor: theme.card,
     borderWidth: 1,
-    borderColor: THEME.border,
+    borderColor: theme.border,
     borderRadius: 12,
     padding: 15,
     fontSize: 16,
     marginTop: 6,
+    color: theme.text,
   },
   primaryButton: {
-    backgroundColor: THEME.primary,
+    backgroundColor: theme.primary,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1044,7 +1253,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   secondaryButtonText: {
-    color: THEME.textSoft,
+    color: theme.textSoft,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -1059,7 +1268,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: THEME.border,
+    borderColor: theme.border,
     marginBottom: 15,
   },
   miniMap: {
@@ -1077,7 +1286,7 @@ const styles = StyleSheet.create({
   },
   mapHint: {
     fontSize: 12,
-    color: THEME.textSoft,
+    color: theme.textSoft,
   },
   // CHIPS
   chipGrid: {
@@ -1091,16 +1300,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: THEME.border,
-    backgroundColor: 'white',
+    borderColor: theme.border,
+    backgroundColor: theme.card,
   },
   choiceChipActive: {
-    backgroundColor: THEME.primary,
-    borderColor: THEME.primary,
+    backgroundColor: theme.primary,
+    borderColor: theme.primary,
   },
   choiceChipText: {
     fontSize: 14,
-    color: THEME.text,
+    color: theme.text,
   },
   choiceChipTextActive: {
     color: 'white',
@@ -1143,9 +1352,18 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: 'white',
     letterSpacing: 1,
+    flex: 1,
+  },
+  refreshBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   statsBar: {
-    backgroundColor: 'white',
+    backgroundColor: theme.card,
     marginHorizontal: 24,
     borderRadius: 20,
     paddingVertical: 14,
@@ -1156,10 +1374,12 @@ const styles = StyleSheet.create({
     elevation: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.1,
     shadowRadius: 10,
     marginBottom: 30,
     marginTop: 0,
+    borderWidth: 1,
+    borderColor: theme.border,
   },
   statItem: {
     flex: 1,
@@ -1178,18 +1398,18 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 18,
     fontWeight: '800',
-    color: THEME.secondary,
+    color: theme.secondary,
   },
   statLabel: {
     fontSize: 11,
-    color: THEME.textSoft,
+    color: theme.textSoft,
     fontWeight: '600',
     textTransform: 'uppercase',
   },
   statDivider: {
     width: 1,
     height: 30,
-    backgroundColor: THEME.border,
+    backgroundColor: theme.border,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -1199,21 +1419,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 28,
   },
   actionCard: {
-    backgroundColor: 'white',
+    backgroundColor: theme.card,
     borderRadius: 20,
     padding: 16,
     marginBottom: 20,
     marginHorizontal: 24,
     elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
+    borderWidth: 1,
+    borderColor: theme.border,
   },
   cardLabel: {
     fontSize: 16,
     fontWeight: '700',
-    color: THEME.text,
+    color: theme.text,
     marginBottom: 12,
   },
   chipScrollContainer: {
@@ -1228,18 +1446,18 @@ const styles = StyleSheet.create({
     height: 38,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: THEME.border,
-    backgroundColor: '#F9FAFB',
+    borderColor: theme.border,
+    backgroundColor: theme.bg,
     marginRight: 10,
     justifyContent: 'center',
   },
   serviceChipActive: {
-    backgroundColor: THEME.primary,
-    borderColor: THEME.primary,
+    backgroundColor: theme.primary,
+    borderColor: theme.primary,
   },
   serviceChipText: {
     fontSize: 13,
-    color: THEME.textSoft,
+    color: theme.textSoft,
   },
   serviceChipTextActive: {
     color: 'white',
@@ -1252,7 +1470,7 @@ const styles = StyleSheet.create({
   },
   labelMini: {
     fontSize: 12,
-    color: THEME.textSoft,
+    color: theme.textSoft,
     marginBottom: 4,
   },
   inputSmall: {
@@ -1262,7 +1480,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   addButton: {
-    backgroundColor: THEME.primary,
+    backgroundColor: theme.primary,
     width: 48,
     height: 48,
     borderRadius: 12,
@@ -1271,16 +1489,14 @@ const styles = StyleSheet.create({
   },
   // APPOINTMENT CARD
   appointmentCard: {
-    backgroundColor: 'white',
+    backgroundColor: theme.card,
     borderRadius: 20,
     padding: 16,
     marginBottom: 12,
     marginHorizontal: 24,
     elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
+    borderWidth: 1,
+    borderColor: theme.border,
   },
   appointmentHeader: {
     flexDirection: 'row',
@@ -1298,12 +1514,12 @@ const styles = StyleSheet.create({
   dateDay: {
     fontSize: 18,
     fontWeight: '800',
-    color: THEME.text,
+    color: theme.text,
   },
   dateMonth: {
     fontSize: 10,
     fontWeight: '700',
-    color: THEME.textSoft,
+    color: theme.textSoft,
   },
   appointmentInfo: {
     flex: 1,
@@ -1314,7 +1530,7 @@ const styles = StyleSheet.create({
   appointmentTime: {
     fontSize: 16,
     fontWeight: '700',
-    color: THEME.text,
+    color: theme.text,
   },
   statusBadge: {
     paddingVertical: 4,
@@ -1333,7 +1549,7 @@ const styles = StyleSheet.create({
   },
   appointmentNotes: {
     fontSize: 13,
-    color: THEME.textSoft,
+    color: theme.textSoft,
     fontStyle: 'italic',
   },
   emptyContainer: {
@@ -1342,11 +1558,11 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   emptyText: {
-    color: THEME.textSoft,
+    color: theme.textSoft,
   },
   clientName: {
     fontSize: 13,
-    color: THEME.textSoft,
+    color: theme.textSoft,
     fontWeight: '500',
   },
   appointmentDetailsBox: {
@@ -1358,7 +1574,7 @@ const styles = StyleSheet.create({
   },
   detailText: {
     fontSize: 12,
-    color: THEME.text,
+    color: theme.text,
   },
   statusActions: {
     flexDirection: 'row',
@@ -1393,16 +1609,14 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   workshopServiceCard: {
-    backgroundColor: 'white',
+    backgroundColor: theme.card,
     borderRadius: 20,
     padding: 16,
     marginBottom: 12,
     marginHorizontal: 24,
     elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
+    borderWidth: 1,
+    borderColor: theme.border,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -1414,12 +1628,12 @@ const styles = StyleSheet.create({
   serviceName: {
     fontSize: 16,
     fontWeight: '700',
-    color: THEME.text,
+    color: theme.text,
     marginBottom: 4,
   },
   servicePrice: {
     fontSize: 13,
-    color: THEME.textSoft,
+    color: theme.textSoft,
     fontWeight: '500',
   },
   deleteServiceBtn: {
@@ -1435,11 +1649,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#F9FAFB',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: THEME.border,
+    borderColor: theme.border,
   },
   emptyServicesText: {
     fontSize: 14,
-    color: THEME.textSoft,
+    color: theme.textSoft,
     fontStyle: 'italic',
   },
   // APPOINTMENT CARD - NEW DESIGN
@@ -1469,12 +1683,12 @@ const styles = StyleSheet.create({
   appointmentDateText: {
     fontSize: 12,
     fontWeight: '700',
-    color: THEME.primary,
+    color: theme.primary,
   },
   appointmentTimeText: {
     fontSize: 14,
     fontWeight: '800',
-    color: THEME.text,
+    color: theme.text,
     marginTop: 2,
   },
   appointmentDetailsColumn: {
@@ -1484,16 +1698,16 @@ const styles = StyleSheet.create({
   appointmentClientName: {
     fontSize: 15,
     fontWeight: '700',
-    color: THEME.text,
+    color: theme.text,
     marginBottom: 4,
   },
   appointmentDetailRow: {
     fontSize: 12,
-    color: THEME.textSoft,
+    color: theme.textSoft,
     marginVertical: 1,
   },
   manageServiceBtn: {
-    backgroundColor: THEME.primary,
+    backgroundColor: theme.primary,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1516,7 +1730,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: 'white',
+    backgroundColor: theme.bg,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     maxHeight: '85%',
@@ -1528,12 +1742,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: THEME.border,
+    borderBottomColor: theme.border,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: THEME.text,
+    color: theme.text,
   },
   modalBody: {
     paddingHorizontal: 20,
@@ -1545,7 +1759,7 @@ const styles = StyleSheet.create({
   formLabel: {
     fontSize: 13,
     fontWeight: '700',
-    color: THEME.text,
+    color: theme.text,
     marginBottom: 8,
   },
   formInput: {
@@ -1553,30 +1767,30 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 12,
     fontSize: 16,
-    color: THEME.text,
+    color: theme.text,
     borderWidth: 1,
-    borderColor: THEME.border,
+    borderColor: theme.border,
   },
   formFieldReadOnly: {
     backgroundColor: '#F9FAFB',
     borderRadius: 12,
     padding: 12,
     borderWidth: 1,
-    borderColor: THEME.border,
+    borderColor: theme.border,
   },
   formInputText: {
     fontSize: 16,
-    color: THEME.text,
+    color: theme.text,
     fontWeight: '500',
   },
   formHelper: {
     fontSize: 11,
-    color: THEME.textSoft,
+    color: theme.textSoft,
     fontStyle: 'italic',
     marginTop: 6,
   },
   modalPrimaryButton: {
-    backgroundColor: THEME.primary,
+    backgroundColor: theme.primary,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1598,9 +1812,63 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   modalSecondaryButtonText: {
-    color: THEME.text,
+    color: theme.text,
     fontSize: 14,
     fontWeight: '600',
     textAlign: 'center',
+  },
+  // ALLIANCES ADMIN STYLES
+  alliancesConfigBox: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 20,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: theme.border,
+  },
+  alliancesHint: {
+    fontSize: 12,
+    color: theme.textSoft,
+    marginBottom: 12,
+    fontStyle: 'italic',
+  },
+  alliancesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  allianceToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'white',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: theme.border,
+    gap: 6,
+  },
+  allianceToggleActive: {
+    backgroundColor: theme.primary,
+    borderColor: theme.primary,
+  },
+  allianceToggleText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: theme.text,
+  },
+  alliancesPreview: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.card,
+    padding: 16,
+    borderRadius: 16,
+    gap: 10,
+    borderWidth: 1,
+    borderColor: theme.border,
+  },
+  alliancesPreviewText: {
+    fontSize: 13,
+    color: theme.textSoft,
+    fontWeight: '600',
   },
 });

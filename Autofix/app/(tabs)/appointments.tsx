@@ -5,25 +5,14 @@ import { useEffect, useState, useCallback } from 'react';
 import { getUserAppointments, Appointment } from '@/lib/appointments';
 import { useRouter } from 'expo-router';
 
-const THEME = {
-    background: '#FFFFFF',
-    text: '#1F2937',
-    textLight: '#6B7280',
-    primary: '#219ebc',
-    secondary: '#023047',
-    border: '#E5E7EB',
-    cardBg: '#FFFFFF',
-    status: {
-        scheduled: '#219ebc',
-        confirmed: '#10B981',
-        completed: '#6B7280',
-        cancelled: '#EF4444',
-    }
-};
+import { useAppTheme } from '@/hooks/useAppTheme';
 
 type TabType = 'programadas' | 'realizadas' | 'canceladas';
 
 export default function AppointmentsScreen() {
+    const theme = useAppTheme();
+    const styles = getStyles(theme);
+
     const router = useRouter();
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -67,7 +56,7 @@ export default function AppointmentsScreen() {
     if (loading && !refreshing) {
         return (
             <View style={styles.center}>
-                <ActivityIndicator color={THEME.primary} size="large" />
+                <ActivityIndicator color={theme.primary} size="large" />
             </View>
         );
     }
@@ -106,12 +95,12 @@ export default function AppointmentsScreen() {
 
             <ScrollView
                 contentContainerStyle={styles.scrollContent}
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={THEME.primary} />}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />}
             >
                 {filteredAppointments.length === 0 ? (
                     <View style={styles.emptyContainer}>
                         <View style={styles.illustrationContainer}>
-                            <Ionicons name="calendar-outline" size={80} color={THEME.primary} style={{ opacity: 0.8 }} />
+                            <Ionicons name="calendar-outline" size={80} color={theme.primary} style={{ opacity: 0.8 }} />
                         </View>
                         <Text style={styles.emptyTitle}>No hay citas en esta categoría</Text>
                         <Text style={styles.emptySubtitle}>Agenda una cita y aparecerá en esta sección.</Text>
@@ -136,8 +125,8 @@ export default function AppointmentsScreen() {
                                         <Text style={styles.plateText}>{apt.vehicle?.license_plate}</Text>
                                     </View>
                                     <View style={styles.headerRight}>
-                                        <View style={[styles.statusBadge, { backgroundColor: THEME.status[apt.status] + '15' }]}>
-                                            <Text style={[styles.statusText, { color: THEME.status[apt.status] }]}>
+                                        <View style={[styles.statusBadge, { backgroundColor: theme.status[apt.status] + '15' }]}>
+                                            <Text style={[styles.statusText, { color: theme.status[apt.status] }]}>
                                                 {apt.status === 'scheduled' ? 'Programada' :
                                                     apt.status === 'confirmed' ? 'Confirmada' :
                                                         apt.status === 'completed' ? 'Realizada' : 'Cancelada'}
@@ -153,11 +142,11 @@ export default function AppointmentsScreen() {
 
                                 <View style={styles.cardBody}>
                                     <View style={styles.infoRow}>
-                                        <Ionicons name="construct-outline" size={18} color={THEME.primary} />
+                                        <Ionicons name="construct-outline" size={18} color={theme.primary} />
                                         <Text style={styles.infoText}>{apt.service?.name || 'Servicio General'}</Text>
                                     </View>
                                     <View style={styles.infoRow}>
-                                        <Ionicons name="time-outline" size={18} color={THEME.textLight} />
+                                        <Ionicons name="time-outline" size={18} color={theme.textSoft} />
                                         <Text style={styles.infoText}>
                                             {new Date(apt.scheduled_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
                                         </Text>
@@ -165,16 +154,16 @@ export default function AppointmentsScreen() {
 
                                     {/* Timeline Visual (The Cool Part) */}
                                     {apt.status === 'cancelled' ? (
-                                        <View style={[styles.timelineContainer, { flexDirection: 'row', justifyContent: 'center', backgroundColor: '#FEE2E2', padding: 12, borderRadius: 12 }]}>
-                                            <Ionicons name="close-circle" size={20} color={THEME.status.cancelled} style={{ marginRight: 8 }} />
-                                            <Text style={{ color: THEME.status.cancelled, fontWeight: '700' }}>Cita Cancelada</Text>
+                                        <View style={[styles.timelineContainer, { flexDirection: 'row', justifyContent: 'center', backgroundColor: theme.danger + '15', padding: 12, borderRadius: 12 }]}>
+                                            <Ionicons name="close-circle" size={20} color={theme.status.cancelled} style={{ marginRight: 8 }} />
+                                            <Text style={{ color: theme.status.cancelled, fontWeight: '700' }}>Cita Cancelada</Text>
                                         </View>
                                     ) : (
                                         <View style={styles.timelineContainer}>
                                             <TimelineDot label="Agendado" active={true} />
-                                            <View style={[styles.timelineLine, { backgroundColor: apt.status === 'confirmed' || apt.status === 'completed' ? THEME.primary : '#E5E7EB' }]} />
+                                            <View style={[styles.timelineLine, { backgroundColor: apt.status === 'confirmed' || apt.status === 'completed' ? theme.primary : theme.border }]} />
                                             <TimelineDot label="Aceptado" active={apt.status === 'confirmed' || apt.status === 'completed'} />
-                                            <View style={[styles.timelineLine, { backgroundColor: apt.status === 'completed' ? THEME.primary : '#E5E7EB' }]} />
+                                            <View style={[styles.timelineLine, { backgroundColor: apt.status === 'completed' ? theme.primary : theme.border }]} />
                                             <TimelineDot label="Listo" active={apt.status === 'completed'} />
                                         </View>
                                     )}
@@ -190,6 +179,8 @@ export default function AppointmentsScreen() {
 }
 
 function TabButton({ label, active, onPress }: { label: string, active: boolean, onPress: () => void }) {
+    const theme = useAppTheme();
+    const styles = getStyles(theme);
     return (
         <TouchableOpacity style={[styles.tab, active && styles.activeTab]} onPress={onPress}>
             <Text style={[styles.tabText, active && styles.activeTabText]}>{label}</Text>
@@ -198,6 +189,8 @@ function TabButton({ label, active, onPress }: { label: string, active: boolean,
 }
 
 function TimelineDot({ label, active }: { label: string, active: boolean }) {
+    const theme = useAppTheme();
+    const styles = getStyles(theme);
     return (
         <View style={styles.dotWrapper}>
             <View style={[styles.dot, active && styles.activeDot]}>
@@ -208,10 +201,10 @@ function TimelineDot({ label, active }: { label: string, active: boolean }) {
     );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: THEME.background,
+        backgroundColor: theme.bg,
         paddingTop: 60,
     },
     center: {
@@ -227,14 +220,14 @@ const styles = StyleSheet.create({
         marginBottom: 20,
     },
     headerAddButton: {
-        backgroundColor: THEME.primary,
+        backgroundColor: theme.primary,
         width: 44,
         height: 44,
         borderRadius: 22,
         justifyContent: 'center',
         alignItems: 'center',
         elevation: 4,
-        shadowColor: THEME.primary,
+        shadowColor: theme.primary,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 8,
@@ -242,7 +235,7 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 34,
         fontWeight: '800',
-        color: THEME.secondary,
+        color: theme.secondary,
     },
     tabsContainer: {
         flexDirection: 'row',
@@ -255,20 +248,20 @@ const styles = StyleSheet.create({
         paddingHorizontal: 12,
         borderRadius: 20,
         borderWidth: 1,
-        borderColor: THEME.border,
-        backgroundColor: 'white',
+        borderColor: theme.border,
+        backgroundColor: theme.card,
     },
     activeTab: {
-        backgroundColor: '#e0f2fe',
-        borderColor: THEME.primary,
+        backgroundColor: theme.primary + '15',
+        borderColor: theme.primary,
     },
     tabText: {
-        color: THEME.textLight,
+        color: theme.textSoft,
         fontSize: 12,
         fontWeight: '600',
     },
     activeTabText: {
-        color: THEME.primary,
+        color: theme.primary,
         fontWeight: 'bold',
     },
     scrollContent: {
@@ -287,24 +280,26 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         width: 120,
         height: 120,
-        backgroundColor: '#e0f2fe',
+        backgroundColor: theme.bg,
+        borderWidth: 1,
+        borderColor: theme.border,
         borderRadius: 60,
     },
     emptyTitle: {
         fontSize: 20,
         fontWeight: 'bold',
-        color: THEME.text,
+        color: theme.text,
         textAlign: 'center',
         marginBottom: 10,
     },
     emptySubtitle: {
         fontSize: 16,
-        color: THEME.textLight,
+        color: theme.textSoft,
         textAlign: 'center',
         marginBottom: 30,
     },
     ctaButton: {
-        backgroundColor: THEME.primary,
+        backgroundColor: theme.primary,
         paddingVertical: 16,
         paddingHorizontal: 32,
         borderRadius: 12,
@@ -320,11 +315,11 @@ const styles = StyleSheet.create({
         gap: 16,
     },
     card: {
-        backgroundColor: 'white',
+        backgroundColor: theme.card,
         borderRadius: 16,
         padding: 16,
         borderWidth: 1,
-        borderColor: THEME.border,
+        borderColor: theme.border,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.05,
@@ -337,7 +332,7 @@ const styles = StyleSheet.create({
         alignItems: 'flex-start',
         marginBottom: 12,
         borderBottomWidth: 1,
-        borderBottomColor: '#F3F4F6',
+        borderBottomColor: theme.border,
         paddingBottom: 12,
     },
     vehicleInfo: {
@@ -346,11 +341,11 @@ const styles = StyleSheet.create({
     carText: {
         fontSize: 18,
         fontWeight: 'bold',
-        color: THEME.text,
+        color: theme.text,
     },
     plateText: {
         fontSize: 14,
-        color: THEME.textLight,
+        color: theme.textSoft,
         textTransform: 'uppercase',
     },
     headerRight: {
@@ -358,7 +353,9 @@ const styles = StyleSheet.create({
         gap: 6,
     },
     priceContainer: {
-        backgroundColor: '#F3F4F6',
+        backgroundColor: theme.bg,
+        borderWidth: 1,
+        borderColor: theme.border,
         paddingHorizontal: 12,
         paddingVertical: 6,
         borderRadius: 12,
@@ -366,7 +363,7 @@ const styles = StyleSheet.create({
     priceText: {
         fontSize: 15,
         fontWeight: '800',
-        color: THEME.secondary,
+        color: theme.secondary,
     },
     statusBadge: {
         paddingHorizontal: 10,
@@ -387,7 +384,7 @@ const styles = StyleSheet.create({
     },
     infoText: {
         fontSize: 15,
-        color: THEME.text,
+        color: theme.text,
     },
     timelineContainer: {
         flexDirection: 'row',
@@ -398,7 +395,7 @@ const styles = StyleSheet.create({
     timelineLine: {
         flex: 1,
         height: 2,
-        backgroundColor: '#E5E7EB',
+        backgroundColor: theme.border,
         marginTop: -16,
     },
     dotWrapper: {
@@ -409,14 +406,14 @@ const styles = StyleSheet.create({
         width: 14,
         height: 14,
         borderRadius: 7,
-        backgroundColor: '#E5E7EB',
+        backgroundColor: theme.border,
         justifyContent: 'center',
         alignItems: 'center',
         zIndex: 1,
         marginBottom: 6,
     },
     activeDot: {
-        backgroundColor: THEME.primary,
+        backgroundColor: theme.primary,
         width: 18,
         height: 18,
         borderRadius: 9,
@@ -429,11 +426,11 @@ const styles = StyleSheet.create({
     },
     dotLabel: {
         fontSize: 10,
-        color: THEME.textLight,
+        color: theme.textSoft,
         fontWeight: '600',
     },
     activeDotLabel: {
-        color: THEME.primary,
+        color: theme.primary,
         fontWeight: 'bold',
     }
 });

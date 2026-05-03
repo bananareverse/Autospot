@@ -11,6 +11,7 @@ export type Appointment = {
     scheduled_at: string;
     status: AppointmentStatus;
     notes: string | null;
+    mechanic_id?: string | null;
     created_at: string;
     // Joins
     vehicle?: {
@@ -74,6 +75,7 @@ export async function scheduleAppointment(params: {
     vehicle_id: string;
     workshop_id?: string | null;
     service_id: string | null;
+    mechanic_id?: string | null;
     scheduled_at: Date;
     notes: string;
 }) {
@@ -96,6 +98,7 @@ export async function scheduleAppointment(params: {
             vehicle_id: params.vehicle_id,
             workshop_id: params.workshop_id || null,
             service_id: params.service_id,
+            mechanic_id: params.mechanic_id || null,
             scheduled_at: params.scheduled_at.toISOString(),
             notes: params.notes,
             status: 'scheduled'

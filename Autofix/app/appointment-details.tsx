@@ -4,16 +4,12 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import { Alert, Modal, ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-
-const THEME = {
-    primary: '#219ebc',
-    secondary: '#023047',
-    bg: '#F9FAFB',
-    text: '#1F2937',
-    textLight: '#6B7280',
-};
+import { useAppTheme } from '@/hooks/useAppTheme';
 
 export default function AppointmentDetailsScreen() {
+    const theme = useAppTheme();
+    const styles = getStyles(theme);
+
     const params = useLocalSearchParams();
     const appointmentId = Array.isArray(params.appointmentId)
         ? params.appointmentId[0]
@@ -197,9 +193,11 @@ export default function AppointmentDetailsScreen() {
             <StatusBar style="dark" />
             <Stack.Screen options={{
                 title: 'Detalles de Cita',
+                headerTitleStyle: { color: theme.text },
+                headerStyle: { backgroundColor: theme.bg },
                 headerRight: () => (
                     <TouchableOpacity onPress={onShare}>
-                        <Ionicons name="share-outline" size={24} color={THEME.primary} />
+                        <Ionicons name="share-outline" size={24} color={theme.primary} />
                     </TouchableOpacity>
                 )
             }} />
@@ -214,12 +212,12 @@ export default function AppointmentDetailsScreen() {
                 </View>
 
                 {/* Cliente Section */}
-                <SectionCard title="CLIENTE" icon="person">
+                <SectionCard title="CLIENTE" icon="person" theme={theme} styles={styles}>
                     {appointment.client ? (
                         <>
-                            <DetailRow label="Nombre" value={`${appointment.client.first_name || ''} ${appointment.client.last_name || ''}`.trim() || 'N/A'} />
-                            <DetailRow label="Email" value={appointment.client.email || 'N/A'} />
-                            <DetailRow label="Teléfono" value={appointment.client.phone || 'N/A'} />
+                            <DetailRow label="Nombre" value={`${appointment.client.first_name || ''} ${appointment.client.last_name || ''}`.trim() || 'N/A'} styles={styles} />
+                            <DetailRow label="Email" value={appointment.client.email || 'N/A'} styles={styles} />
+                            <DetailRow label="Teléfono" value={appointment.client.phone || 'N/A'} styles={styles} />
                         </>
                     ) : (
                         <Text style={styles.noDataText}>No hay información del cliente</Text>
@@ -227,14 +225,14 @@ export default function AppointmentDetailsScreen() {
                 </SectionCard>
 
                 {/* Vehículo Section */}
-                <SectionCard title="VEHÍCULO" icon="car">
+                <SectionCard title="VEHÍCULO" icon="car" theme={theme} styles={styles}>
                     {appointment.vehicle ? (
                         <>
-                            <DetailRow label="Marca" value={appointment.vehicle.make || 'N/A'} />
-                            <DetailRow label="Modelo" value={appointment.vehicle.model || 'N/A'} />
-                            <DetailRow label="Placas" value={appointment.vehicle.license_plate || 'N/A'} />
-                            <DetailRow label="Año" value={appointment.vehicle.year?.toString() || 'N/A'} />
-                            <DetailRow label="Color" value={appointment.vehicle.color || 'N/A'} />
+                            <DetailRow label="Marca" value={appointment.vehicle.make || 'N/A'} styles={styles} />
+                            <DetailRow label="Modelo" value={appointment.vehicle.model || 'N/A'} styles={styles} />
+                            <DetailRow label="Placas" value={appointment.vehicle.license_plate || 'N/A'} styles={styles} />
+                            <DetailRow label="Año" value={appointment.vehicle.year?.toString() || 'N/A'} styles={styles} />
+                            <DetailRow label="Color" value={appointment.vehicle.color || 'N/A'} styles={styles} />
                         </>
                     ) : (
                         <Text style={styles.noDataText}>No hay información del vehículo</Text>
@@ -242,7 +240,7 @@ export default function AppointmentDetailsScreen() {
                 </SectionCard>
 
                 {/* Cita Section */}
-                <SectionCard title="CITA" icon="calendar">
+                <SectionCard title="CITA" icon="calendar" theme={theme} styles={styles}>
                     <DetailRow
                         label="Fecha"
                         value={new Date(appointment.scheduled_at).toLocaleDateString('es-ES', {
@@ -251,6 +249,7 @@ export default function AppointmentDetailsScreen() {
                             month: 'long',
                             day: 'numeric'
                         })}
+                        styles={styles}
                     />
                     <DetailRow
                         label="Hora"
@@ -258,22 +257,24 @@ export default function AppointmentDetailsScreen() {
                             hour: '2-digit',
                             minute: '2-digit'
                         })}
+                        styles={styles}
                     />
-                    <DetailRow label="Estado" value={translateStatus(appointment.status)} />
+                    <DetailRow label="Estado" value={translateStatus(appointment.status)} styles={styles} />
                     {appointment.notes && (
-                        <DetailRow label="Notas Cliente" value={appointment.notes} />
+                        <DetailRow label="Notas Cliente" value={appointment.notes} styles={styles} />
                     )}
                 </SectionCard>
 
                 {/* Servicio Section */}
-                <SectionCard title="SERVICIO" icon="construct">
+                <SectionCard title="SERVICIO" icon="construct" theme={theme} styles={styles}>
                     {appointment.service ? (
                         <>
-                            <DetailRow label="Nombre" value={appointment.service.name || 'N/A'} />
-                            <DetailRow label="Descripción" value={appointment.service.description || 'N/A'} />
+                            <DetailRow label="Nombre" value={appointment.service.name || 'N/A'} styles={styles} />
+                            <DetailRow label="Descripción" value={appointment.service.description || 'N/A'} styles={styles} />
                             <DetailRow
                                 label="Precio Estimado"
                                 value={appointment.final_price != null ? `$${appointment.final_price.toFixed(2)}` : 'N/A'}
+                                styles={styles}
                             />
                         </>
                     ) : (
@@ -320,6 +321,7 @@ export default function AppointmentDetailsScreen() {
                             multiline={true}
                             numberOfLines={4}
                             placeholder="Razón del rechazo..."
+                            placeholderTextColor={theme.textMuted}
                             value={rejectReason}
                             onChangeText={setRejectReason}
                         />
@@ -347,11 +349,11 @@ export default function AppointmentDetailsScreen() {
     );
 }
 
-function SectionCard({ title, icon, children }: any) {
+function SectionCard({ title, icon, children, theme, styles }: any) {
     return (
         <View style={styles.sectionCard}>
             <View style={styles.sectionHeader}>
-                <Ionicons name={icon as any} size={20} color={THEME.primary} />
+                <Ionicons name={icon as any} size={20} color={theme.primary} />
                 <Text style={styles.sectionTitle}>{title}</Text>
             </View>
             <View style={styles.sectionContent}>
@@ -361,7 +363,7 @@ function SectionCard({ title, icon, children }: any) {
     );
 }
 
-function DetailRow({ label, value }: { label: string; value: string }) {
+function DetailRow({ label, value, styles }: { label: string; value: string; styles: any }) {
     return (
         <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>{label}:</Text>
@@ -370,14 +372,14 @@ function DetailRow({ label, value }: { label: string; value: string }) {
     );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: THEME.bg,
+        backgroundColor: theme.bg,
     },
     loadingText: {
         fontSize: 16,
-        color: THEME.text,
+        color: theme.text,
     },
     errorText: {
         fontSize: 16,
@@ -386,7 +388,7 @@ const styles = StyleSheet.create({
         marginBottom: 20,
     },
     backButton: {
-        backgroundColor: THEME.primary,
+        backgroundColor: theme.primary,
         paddingHorizontal: 20,
         paddingVertical: 10,
         borderRadius: 6,
@@ -417,11 +419,11 @@ const styles = StyleSheet.create({
     },
     appointmentId: {
         fontSize: 14,
-        color: THEME.textLight,
+        color: theme.textMuted,
         fontWeight: '600',
     },
     sectionCard: {
-        backgroundColor: 'white',
+        backgroundColor: theme.card,
         borderRadius: 12,
         marginBottom: 16,
         overflow: 'hidden',
@@ -430,20 +432,22 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.05,
         shadowRadius: 8,
         elevation: 2,
+        borderWidth: 1,
+        borderColor: theme.border,
     },
     sectionHeader: {
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: 16,
         paddingVertical: 12,
-        backgroundColor: '#F9FAFB',
+        backgroundColor: theme.bg,
         borderBottomWidth: 1,
-        borderBottomColor: '#E5E7EB',
+        borderBottomColor: theme.border,
     },
     sectionTitle: {
         fontSize: 14,
         fontWeight: '700',
-        color: THEME.text,
+        color: theme.text,
         marginLeft: 10,
         textTransform: 'uppercase',
         letterSpacing: 0.5,
@@ -456,24 +460,24 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         paddingVertical: 10,
         borderBottomWidth: 1,
-        borderBottomColor: '#F3F4F6',
+        borderBottomColor: theme.border,
     },
     detailLabel: {
         fontSize: 13,
-        color: THEME.textLight,
+        color: theme.textMuted,
         fontWeight: '600',
         flex: 1,
     },
     detailValue: {
         fontSize: 13,
-        color: THEME.text,
+        color: theme.text,
         fontWeight: '500',
         flex: 1,
         textAlign: 'right',
     },
     noDataText: {
         fontSize: 13,
-        color: THEME.textLight,
+        color: theme.textMuted,
         fontStyle: 'italic',
         textAlign: 'center',
         paddingVertical: 8,
@@ -510,31 +514,35 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     modalContent: {
-        backgroundColor: 'white',
+        backgroundColor: theme.card,
         borderRadius: 12,
         padding: 20,
         width: '90%',
         maxWidth: 400,
+        borderWidth: 1,
+        borderColor: theme.border,
     },
     modalTitle: {
         fontSize: 18,
         fontWeight: 'bold',
-        color: THEME.text,
+        color: theme.text,
         marginBottom: 8,
         textAlign: 'center',
     },
     modalSubtitle: {
         fontSize: 14,
-        color: THEME.textLight,
+        color: theme.textMuted,
         marginBottom: 16,
         textAlign: 'center',
     },
     rejectInput: {
         borderWidth: 1,
-        borderColor: '#E5E7EB',
+        borderColor: theme.border,
         borderRadius: 8,
         padding: 12,
         fontSize: 14,
+        color: theme.text,
+        backgroundColor: theme.bg,
         minHeight: 80,
         textAlignVertical: 'top',
         marginBottom: 20,
@@ -550,13 +558,15 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     cancelModalButton: {
-        backgroundColor: '#F3F4F6',
+        backgroundColor: theme.bg,
+        borderWidth: 1,
+        borderColor: theme.border,
     },
     confirmModalButton: {
         backgroundColor: '#EF4444',
     },
     cancelModalButtonText: {
-        color: THEME.text,
+        color: theme.text,
         fontWeight: '600',
     },
     confirmModalButtonText: {

@@ -18,16 +18,7 @@ import {
 
 const { width } = Dimensions.get('window');
 
-const THEME = {
-    primary: '#219ebc',
-    secondary: '#023047',
-    accent: '#fb8500',
-    bg: '#F8FAFC',
-    card: '#FFFFFF',
-    text: '#1e293b',
-    textMuted: '#64748b',
-    border: '#e2e8f0',
-};
+import { useAppTheme } from '@/hooks/useAppTheme';
 
 const STATUS_CONFIG: Record<string, { label: string, color: string, icon: any }> = {
     scheduled: { label: 'Programada', color: '#3b82f6', icon: 'calendar-outline' },
@@ -50,6 +41,9 @@ interface AppointmentWithDetails {
 }
 
 export default function AgendaScreen() {
+    const theme = useAppTheme();
+    const styles = getStyles(theme);
+
     const { isWorkshop } = useAuth();
     const [appointments, setAppointments] = useState<AppointmentWithDetails[]>([]);
     const [loading, setLoading] = useState(true);
@@ -147,7 +141,7 @@ export default function AgendaScreen() {
 
     if (loading) return (
         <View style={styles.center}>
-            <ActivityIndicator size="large" color={THEME.primary} />
+            <ActivityIndicator size="large" color={theme.primary} />
         </View>
     );
 
@@ -156,7 +150,7 @@ export default function AgendaScreen() {
             <StatusBar style="light" />
 
             <LinearGradient
-                colors={[THEME.secondary, THEME.primary]}
+                colors={[theme.secondary, theme.primary]}
                 style={styles.header}
             >
                 <View style={styles.headerTop}>
@@ -209,7 +203,7 @@ export default function AgendaScreen() {
                     {dailyAppointments.length === 0 ? (
                         <View style={styles.emptyState}>
                             <View style={styles.emptyIconBox}>
-                                <Ionicons name="calendar-outline" size={48} color={THEME.border} />
+                                <Ionicons name="calendar-outline" size={48} color={theme.border} />
                             </View>
                             <Text style={styles.emptyText}>No hay citas para hoy</Text>
                             <Text style={styles.emptySub}>Disfruta de tu tiempo libre o revisa otros días.</Text>
@@ -232,9 +226,9 @@ export default function AgendaScreen() {
 
                                     <View style={styles.aptMainInfo}>
                                         <Text style={styles.clientName}>{apt.client?.first_name} {apt.client?.last_name || 'Cliente'}</Text>
-                                        <Text style={styles.vehicleInfo} numberOfLines={1}>{apt.vehicle?.make} {apt.vehicle?.model} • <Text style={{ color: THEME.primary }}>{apt.vehicle?.license_plate}</Text></Text>
+                                        <Text style={styles.vehicleInfo} numberOfLines={1}>{apt.vehicle?.make} {apt.vehicle?.model} • <Text style={{ color: theme.primary }}>{apt.vehicle?.license_plate}</Text></Text>
                                         <View style={styles.serviceTag}>
-                                            <Ionicons name="construct-outline" size={12} color={THEME.textMuted} />
+                                            <Ionicons name="construct-outline" size={12} color={theme.textMuted} />
                                             <Text style={styles.serviceText}>{apt.service?.name}</Text>
                                         </View>
                                     </View>
@@ -255,8 +249,8 @@ export default function AgendaScreen() {
     );
 }
 
-const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: THEME.bg },
+const getStyles = (theme: any) => StyleSheet.create({
+    container: { flex: 1, backgroundColor: theme.bg },
     center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 
     header: { paddingBottom: 24, borderBottomLeftRadius: 32, borderBottomRightRadius: 32, elevation: 8, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 10 },
@@ -270,41 +264,41 @@ const styles = StyleSheet.create({
 
     dayPillsContainer: { paddingHorizontal: 20, marginTop: 24, gap: 10 },
     dayPill: { width: 55, height: 75, backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 16, justifyContent: 'center', alignItems: 'center', position: 'relative' },
-    dayPillActive: { backgroundColor: THEME.accent },
+    dayPillActive: { backgroundColor: theme.accent },
     dayPillName: { fontSize: 11, fontWeight: 'bold', color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase' },
     dayPillNum: { fontSize: 18, fontWeight: '900', color: 'white', marginTop: 2 },
     dayPillTextActive: { color: 'white' },
-    todayDot: { position: 'absolute', bottom: 8, width: 4, height: 4, borderRadius: 2, backgroundColor: THEME.accent },
+    todayDot: { position: 'absolute', bottom: 8, width: 4, height: 4, borderRadius: 2, backgroundColor: theme.accent },
 
     body: { flex: 1, paddingHorizontal: 20, marginTop: 20 },
     listHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16 },
-    listTitle: { fontSize: 13, fontWeight: '900', color: THEME.textMuted, letterSpacing: 1 },
-    badge: { backgroundColor: THEME.primary, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 },
+    listTitle: { fontSize: 13, fontWeight: '900', color: theme.textMuted, letterSpacing: 1 },
+    badge: { backgroundColor: theme.primary, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 },
     badgeText: { color: 'white', fontSize: 12, fontWeight: 'bold' },
 
     listContent: { paddingBottom: 30 },
     aptCard: {
-        backgroundColor: THEME.card, borderRadius: 20, marginBottom: 12,
+        backgroundColor: theme.card, borderRadius: 20, marginBottom: 12,
         flexDirection: 'row', overflow: 'hidden', elevation: 3,
         shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }
     },
     statusSideBar: { width: 6, height: '100%' },
-    aptTimeColumn: { padding: 15, justifyContent: 'center', alignItems: 'center', borderRightWidth: 1, borderRightColor: THEME.border, width: 75 },
-    aptHour: { fontSize: 15, fontWeight: '900', color: THEME.secondary },
-    aptDuration: { fontSize: 10, color: THEME.textMuted, marginTop: 2 },
+    aptTimeColumn: { padding: 15, justifyContent: 'center', alignItems: 'center', borderRightWidth: 1, borderRightColor: theme.border, width: 75 },
+    aptHour: { fontSize: 15, fontWeight: '900', color: theme.secondary },
+    aptDuration: { fontSize: 10, color: theme.textMuted, marginTop: 2 },
 
     aptMainInfo: { flex: 1, padding: 15, justifyContent: 'center' },
-    clientName: { fontSize: 16, fontWeight: 'bold', color: THEME.text },
-    vehicleInfo: { fontSize: 13, color: THEME.textMuted, marginTop: 2 },
+    clientName: { fontSize: 16, fontWeight: 'bold', color: theme.text },
+    vehicleInfo: { fontSize: 13, color: theme.textMuted, marginTop: 2 },
     serviceTag: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 },
-    serviceText: { fontSize: 12, fontWeight: 'bold', color: THEME.textMuted },
+    serviceText: { fontSize: 12, fontWeight: 'bold', color: theme.textMuted },
 
     aptEndColumn: { padding: 15, alignItems: 'center', justifyContent: 'space-between' },
     statusIconBox: { width: 32, height: 32, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
-    aptPrice: { fontSize: 14, fontWeight: '900', color: THEME.secondary },
+    aptPrice: { fontSize: 14, fontWeight: '900', color: theme.secondary },
 
     emptyState: { paddingVertical: 60, alignItems: 'center' },
-    emptyIconBox: { width: 80, height: 80, borderRadius: 24, backgroundColor: '#f1f5f9', justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
-    emptyText: { fontSize: 18, fontWeight: 'bold', color: THEME.secondary },
-    emptySub: { fontSize: 14, color: THEME.textMuted, textAlign: 'center', marginTop: 4, paddingHorizontal: 40 }
+    emptyIconBox: { width: 80, height: 80, borderRadius: 24, backgroundColor: theme.bg, borderWidth: 1, borderColor: theme.border, justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
+    emptyText: { fontSize: 18, fontWeight: 'bold', color: theme.secondary },
+    emptySub: { fontSize: 14, color: theme.textMuted, textAlign: 'center', marginTop: 4, paddingHorizontal: 40 }
 });

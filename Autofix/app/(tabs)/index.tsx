@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { FlatList, StyleSheet, View, Text, ActivityIndicator, TouchableOpacity, Alert, TextInput, Platform } from 'react-native';
+import { FlatList, StyleSheet, View, Text, ActivityIndicator, TouchableOpacity, Alert, TextInput, Platform, ScrollView } from 'react-native';
+import { Image } from 'expo-image';
 import { StatusBar } from 'expo-status-bar';
 import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,18 +9,12 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '@/ctx/AuthContext';
 import { LinearGradient } from 'expo-linear-gradient';
 
-const THEME = {
-    primary: '#219ebc',
-    secondary: '#023047',
-    accent: '#fb8500',
-    bg: '#FFFFFF',
-    card: '#F9FAFB',
-    text: '#1F2937',
-    textMuted: '#6B7280',
-    border: '#E5E7EB',
-};
+import { useAppTheme } from '@/hooks/useAppTheme';
 
 export default function HomeScreen() {
+    const theme = useAppTheme();
+    const styles = getStyles(theme);
+
     const router = useRouter();
     const { isWorkshop } = useAuth();
     const [workshops, setWorkshops] = useState<any[]>([]);
@@ -27,6 +22,7 @@ export default function HomeScreen() {
     const [userLocation, setUserLocation] = useState<Location.LocationObjectCoords | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [partners, setPartners] = useState<any[]>([]);
 
     const filteredWorkshops = workshops.filter((workshop) =>
         workshop.name?.toLowerCase().includes(searchText.trim().toLowerCase())
@@ -35,8 +31,29 @@ export default function HomeScreen() {
     useEffect(() => {
         if (!isWorkshop) {
             fetchNearbyWorkshops();
+            fetchPartners();
         }
     }, [isWorkshop]);
+
+    async function fetchPartners() {
+        try {
+            const { data, error } = await supabase.from('partners').select('*').limit(10);
+            if (!error && data && data.length > 0) {
+                setPartners(data);
+            } else {
+                // Datos de prueba premium
+                setPartners([
+                    { id: 'p1', name: 'GNP Seguros', logo_url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c3/GNP_Logo.svg/2560px-GNP_Logo.svg.png' },
+                    { id: 'p2', name: 'Qualitas', logo_url: 'https://qualitas.com.mx/static/media/logo-qualitas.1a3a4b5d.png' },
+                    { id: 'p3', name: 'Mobil 1', logo_url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d4/Mobil_1_logo.svg/2560px-Mobil_1_logo.svg.png' },
+                    { id: 'p4', name: 'Bosch', logo_url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/16/Bosch-logo.svg/2560px-Bosch-logo.svg.png' },
+                    { id: 'p5', name: 'Michelin', logo_url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d4/Michelin_logo.svg/2560px-Michelin_logo.svg.png' },
+                ]);
+            }
+        } catch (e) {
+            console.log("Error loading partners:", e);
+        }
+    }
 
     function getDistanceInKm(lat1: number, lon1: number, lat2: number, lon2: number) {
         const R = 6371;
@@ -115,7 +132,7 @@ export default function HomeScreen() {
 
 
             <LinearGradient
-                colors={[THEME.secondary, THEME.primary]}
+                colors={[theme.secondary, theme.primary]}
                 style={styles.headerGradient}
             />
 
@@ -129,20 +146,46 @@ export default function HomeScreen() {
 
             <View style={styles.searchContainerWrapper}>
                 <View style={styles.searchContainer}>
-                    <Ionicons name="search" size={20} color={THEME.textMuted} />
+                    <Ionicons name="search" size={20} color={theme.textMuted} />
                     <TextInput
                         style={styles.searchInput}
                         placeholder="Buscar taller por nombre..."
-                        placeholderTextColor={THEME.textMuted}
+                        placeholderTextColor={theme.textMuted}
                         value={searchText}
                         onChangeText={setSearchText}
                     />
                 </View>
             </View>
 
+            {/* Carrusel de Alianzas - Más sutil y con iconos */}
+            {!isWorkshop && partners.length > 0 && (
+                <View style={styles.partnersContainer}>
+                    <View style={styles.partnersHeader}>
+                        <Ionicons name="ribbon-outline" size={14} color={theme.textMuted} />
+                        <Text style={styles.partnersTitle}>RED DE CONFIANZA</Text>
+                    </View>
+                    <ScrollView 
+                        horizontal 
+                        showsHorizontalScrollIndicator={false} 
+                        contentContainerStyle={styles.partnersList}
+                    >
+                        {partners.map((item) => (
+                            <View key={item.id} style={styles.partnerBadge}>
+                                <Ionicons 
+                                    name={getPartnerIcon(item.type)} 
+                                    size={14} 
+                                    color={theme.primary} 
+                                />
+                                <Text style={styles.partnerBadgeName}>{item.name}</Text>
+                            </View>
+                        ))}
+                    </ScrollView>
+                </View>
+            )}
+
             <View style={styles.listContainer}>
                 <View style={styles.sectionHeader}>
-                    <Ionicons name="business" size={24} color={THEME.primary} />
+                    <Ionicons name="business" size={24} color={theme.primary} />
                     <Text style={styles.sectionTitle}>TALLERES CERCANOS</Text>
                 </View>
 
@@ -152,14 +195,14 @@ export default function HomeScreen() {
 
                 {loading && (
                     <View style={styles.loadingContainer}>
-                        <ActivityIndicator size="large" color={THEME.primary} />
+                        <ActivityIndicator size="large" color={theme.primary} />
                         <Text style={styles.loadingText}>Buscando talleres...</Text>
                     </View>
                 )}
 
                 {error && (
                     <View style={styles.errorContainer}>
-                        <Ionicons name="alert-circle-outline" size={40} color={THEME.accent} />
+                        <Ionicons name="alert-circle-outline" size={40} color={theme.accent} />
                         <Text style={styles.errorText}>No se pudieron cargar los talleres</Text>
                         <Text style={styles.errorSubtext}>{error}</Text>
                     </View>
@@ -178,7 +221,7 @@ export default function HomeScreen() {
                                 activeOpacity={0.8}
                             >
                                 <View style={styles.cardIconBox}>
-                                    <Ionicons name="build" size={24} color={THEME.primary} />
+                                    <Ionicons name="build" size={24} color={theme.primary} />
                                 </View>
                                 <View style={styles.cardInfo}>
                                     <View style={styles.cardHeader}>
@@ -188,11 +231,11 @@ export default function HomeScreen() {
                                     
                                     <View style={styles.metaRow}>
                                         <View style={styles.metaBadge}>
-                                            <Ionicons name="location" size={12} color={THEME.primary} />
+                                            <Ionicons name="location" size={12} color={theme.primary} />
                                             <Text style={styles.metaText}>{item.distance?.toFixed(2)} km</Text>
                                         </View>
                                         <View style={styles.metaBadge}>
-                                            <Ionicons name="star" size={12} color={THEME.accent} />
+                                            <Ionicons name="star" size={12} color={theme.accent} />
                                             <Text style={styles.metaText}>{item.rating ?? 'N/A'} ({item.total_reviews ?? 0})</Text>
                                         </View>
                                     </View>
@@ -201,7 +244,7 @@ export default function HomeScreen() {
                         )}
                         ListEmptyComponent={
                             <View style={styles.emptyContainer}>
-                                <Ionicons name="search-outline" size={48} color={THEME.border} />
+                                <Ionicons name="search-outline" size={48} color={theme.border} />
                                 <Text style={styles.emptyText}>No hay talleres que coincidan con tu búsqueda.</Text>
                             </View>
                         }
@@ -212,10 +255,59 @@ export default function HomeScreen() {
     );
 }
 
-const styles = StyleSheet.create({
+function getPartnerIcon(type: string): any {
+    switch (type) {
+        case 'insurance': return 'shield-checkmark';
+        case 'spare_parts': return 'construct';
+        case 'oil': return 'water';
+        case 'tyres': return 'disc';
+        default: return 'star';
+    }
+}
+
+const getStyles = (theme: any) => StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: THEME.bg,
+        backgroundColor: theme.bg,
+    },
+    // Estilos para Alianzas (Más sutiles)
+    partnersContainer: {
+        marginTop: 15,
+        marginBottom: 5,
+    },
+    partnersHeader: {
+        paddingHorizontal: 24,
+        marginBottom: 10,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
+    partnersTitle: {
+        fontSize: 10,
+        fontWeight: '900',
+        color: theme.textMuted,
+        letterSpacing: 1.2,
+    },
+    partnersList: {
+        paddingHorizontal: 20,
+        paddingBottom: 10,
+        gap: 8,
+    },
+    partnerBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: theme.card,
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: theme.border,
+        gap: 8,
+    },
+    partnerBadgeName: {
+        fontSize: 11,
+        fontWeight: '700',
+        color: theme.text,
     },
     headerGradient: {
         height: 180,
@@ -259,9 +351,9 @@ const styles = StyleSheet.create({
     searchContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: THEME.card,
+        backgroundColor: theme.card,
         borderWidth: 1,
-        borderColor: THEME.border,
+        borderColor: theme.border,
         borderRadius: 20,
         paddingHorizontal: 15,
         height: 55,
@@ -273,7 +365,7 @@ const styles = StyleSheet.create({
     },
     searchInput: {
         flex: 1,
-        color: THEME.text,
+        color: theme.text,
         fontSize: 16,
         marginLeft: 10,
     },
@@ -291,11 +383,11 @@ const styles = StyleSheet.create({
     sectionTitle: {
         fontSize: 14,
         fontWeight: '900',
-        color: THEME.secondary,
+        color: theme.secondary,
         letterSpacing: 2,
     },
     locationHint: {
-        color: THEME.textMuted,
+        color: theme.textMuted,
         fontSize: 12,
         paddingHorizontal: 24,
         marginBottom: 10,
@@ -307,15 +399,15 @@ const styles = StyleSheet.create({
         gap: 16,
     },
     card: {
-        backgroundColor: THEME.card,
+        backgroundColor: theme.card,
         borderRadius: 20,
         padding: 16,
         borderWidth: 1,
-        borderColor: THEME.border,
+        borderColor: theme.border,
         flexDirection: 'row',
         alignItems: 'center',
         elevation: 2,
-        shadowColor: THEME.secondary,
+        shadowColor: theme.secondary,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.05,
         shadowRadius: 8,
@@ -324,7 +416,9 @@ const styles = StyleSheet.create({
         width: 50,
         height: 50,
         borderRadius: 15,
-        backgroundColor: 'rgba(33, 158, 188, 0.1)',
+        backgroundColor: theme.bg,
+        borderWidth: 1,
+        borderColor: theme.border,
         justifyContent: 'center',
         alignItems: 'center',
         marginRight: 16,
@@ -338,11 +432,11 @@ const styles = StyleSheet.create({
     itemName: {
         fontSize: 16,
         fontWeight: 'bold',
-        color: THEME.text,
+        color: theme.text,
     },
     itemAddress: {
         fontSize: 12,
-        color: THEME.textMuted,
+        color: theme.textMuted,
         marginBottom: 10,
         lineHeight: 16,
     },
@@ -354,16 +448,16 @@ const styles = StyleSheet.create({
     metaBadge: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: THEME.bg,
+        backgroundColor: theme.bg,
         borderWidth: 1,
-        borderColor: THEME.border,
+        borderColor: theme.border,
         paddingHorizontal: 8,
         paddingVertical: 4,
         borderRadius: 10,
         gap: 4,
     },
     metaText: {
-        color: THEME.secondary,
+        color: theme.secondary,
         fontSize: 11,
         fontWeight: 'bold',
     },
@@ -373,7 +467,7 @@ const styles = StyleSheet.create({
     },
     loadingText: {
         marginTop: 10,
-        color: THEME.textMuted,
+        color: theme.textMuted,
         fontWeight: '600',
     },
     errorContainer: {
@@ -381,13 +475,13 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     errorText: {
-        color: THEME.text,
+        color: theme.text,
         fontSize: 16,
         fontWeight: 'bold',
         marginTop: 10,
     },
     errorSubtext: {
-        color: THEME.textMuted,
+        color: theme.textMuted,
         textAlign: 'center',
         fontSize: 13,
         marginTop: 4,
@@ -399,9 +493,10 @@ const styles = StyleSheet.create({
     },
     emptyText: {
         textAlign: 'center',
-        color: THEME.textMuted,
+        color: theme.textMuted,
         marginTop: 16,
         fontWeight: '500',
         paddingHorizontal: 40,
     }
 });
+

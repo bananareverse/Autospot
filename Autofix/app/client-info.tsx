@@ -6,19 +6,12 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { LinearGradient } from 'expo-linear-gradient';
 
-const THEME = {
-    primary: '#219ebc',    
-    secondary: '#023047',  
-    accent: '#fb8500',     
-    bg: '#FFFFFF',
-    card: '#F9FAFB',
-    text: '#1F2937',
-    textMuted: '#6B7280',
-    border: '#E5E7EB',
-    danger: '#EF4444',
-};
+import { useAppTheme } from '@/hooks/useAppTheme';
 
 export default function ClientInfoScreen() {
+  const theme = useAppTheme();
+  const styles = getStyles(theme);
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [client, setClient] = useState<any>(null);
@@ -88,7 +81,7 @@ export default function ClientInfoScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color={THEME.primary} />
+        <ActivityIndicator size="large" color={theme.primary} />
       </View>
     );
   }
@@ -105,7 +98,7 @@ export default function ClientInfoScreen() {
       }} />
 
       <LinearGradient
-          colors={[THEME.secondary, THEME.primary]}
+          colors={[theme.secondary, theme.primary]}
           style={styles.headerGradient}
       />
 
@@ -113,13 +106,13 @@ export default function ClientInfoScreen() {
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} bounces={false}>
 
           <View style={styles.profileCard}>
-            <Ionicons name="person-circle" size={100} color={THEME.primary} style={{ marginBottom: 5 }} />
+            <Ionicons name="person-circle" size={100} color={theme.primary} style={{ marginBottom: 5 }} />
             <Text style={styles.name}>{client?.first_name} {client?.last_name}</Text>
             <Text style={styles.email}>{client?.email}</Text>
             
             {client?.phone ? (
               <View style={styles.phoneBadge}>
-                <Ionicons name="call" size={14} color={THEME.primary} />
+                <Ionicons name="call" size={14} color={theme.primary} />
                 <Text style={styles.phoneText}>{client.phone}</Text>
               </View>
             ) : null}
@@ -131,7 +124,7 @@ export default function ClientInfoScreen() {
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Teléfono</Text>
               <View style={styles.inputWrapper}>
-                <Ionicons name="call-outline" size={20} color={THEME.textMuted} style={styles.inputIcon} />
+                <Ionicons name="call-outline" size={20} color={theme.textMuted} style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
                   value={phone}
@@ -146,7 +139,7 @@ export default function ClientInfoScreen() {
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Dirección (Opcional)</Text>
               <View style={styles.inputWrapper}>
-                <Ionicons name="location-outline" size={20} color={THEME.textMuted} style={styles.inputIcon} />
+                <Ionicons name="location-outline" size={20} color={theme.textMuted} style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
                   value={address}
@@ -158,7 +151,7 @@ export default function ClientInfoScreen() {
             </View>
 
             <View style={styles.infoBox}>
-                <Ionicons name="shield-checkmark" size={20} color={THEME.primary} />
+                <Ionicons name="shield-checkmark" size={20} color={theme.primary} />
                 <Text style={styles.infoText}>Estos datos solo se usarán para contactarte sobre tus citas.</Text>
             </View>
 
@@ -178,10 +171,10 @@ export default function ClientInfoScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: THEME.bg,
+    backgroundColor: theme.bg,
   },
   headerGradient: {
     height: 180,
@@ -195,7 +188,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: THEME.bg,
+    backgroundColor: theme.bg,
   },
   content: {
     flexGrow: 1,
@@ -204,13 +197,13 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   profileCard: {
-    backgroundColor: THEME.card,
+    backgroundColor: theme.card,
     padding: 24,
     borderRadius: 24,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: THEME.border,
-    shadowColor: THEME.secondary,
+    borderColor: theme.border,
+    shadowColor: theme.secondary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.05,
     shadowRadius: 10,
@@ -220,12 +213,12 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 22,
     fontWeight: '900',
-    color: THEME.secondary,
+    color: theme.secondary,
     textAlign: 'center',
   },
   email: {
     fontSize: 14,
-    color: THEME.textMuted,
+    color: theme.textMuted,
     marginTop: 4,
     fontWeight: '500',
   },
@@ -242,15 +235,15 @@ const styles = StyleSheet.create({
   phoneText: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: THEME.primary,
+    color: theme.primary,
     letterSpacing: 0.5,
   },
   formSection: {
-    backgroundColor: THEME.card,
+    backgroundColor: theme.card,
     padding: 24,
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: THEME.border,
+    borderColor: theme.border,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.03,
@@ -260,7 +253,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '900',
-    color: THEME.secondary,
+    color: theme.secondary,
     marginBottom: 20,
     textTransform: 'uppercase',
     letterSpacing: 1,
@@ -271,16 +264,16 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: THEME.text,
+    color: theme.text,
     marginBottom: 8,
     marginLeft: 4,
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: THEME.bg,
+    backgroundColor: theme.bg,
     borderWidth: 1,
-    borderColor: THEME.border,
+    borderColor: theme.border,
     borderRadius: 16,
     paddingHorizontal: 14,
   },
@@ -291,7 +284,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 55,
     fontSize: 16,
-    color: THEME.text,
+    color: theme.text,
   },
   infoBox: {
     flexDirection: 'row',
@@ -306,19 +299,19 @@ const styles = StyleSheet.create({
   },
   infoText: {
     flex: 1,
-    color: THEME.primary,
+    color: theme.primary,
     fontSize: 13,
     lineHeight: 18,
     fontWeight: '500',
   },
   saveButton: {
     flexDirection: 'row',
-    backgroundColor: THEME.primary,
+    backgroundColor: theme.primary,
     padding: 18,
     borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: THEME.primary,
+    shadowColor: theme.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,

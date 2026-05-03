@@ -11,19 +11,12 @@ import { ActivityIndicator, Alert, Dimensions, Image, Platform, ScrollView, Styl
 
 const { width } = Dimensions.get('window');
 
-const THEME = {
-    primary: '#219ebc',
-    secondary: '#023047',
-    accent: '#fb8500',
-    bg: '#FFFFFF',
-    card: '#F9FAFB',
-    text: '#1F2937',
-    textMuted: '#6B7280',
-    border: '#E5E7EB',
-    danger: '#EF4444',
-};
+import { useAppTheme } from '@/hooks/useAppTheme';
 
 export default function ProfileScreen() {
+    const theme = useAppTheme();
+    const styles = getStyles(theme);
+
     const router = useRouter();
     const { isWorkshop } = useAuth();
     const [profile, setProfile] = useState<any>(null);
@@ -159,7 +152,7 @@ export default function ProfileScreen() {
     if (loading) {
         return (
             <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-                <ActivityIndicator size="large" color={THEME.primary} />
+                <ActivityIndicator size="large" color={theme.primary} />
             </View>
         );
     }
@@ -170,7 +163,7 @@ export default function ProfileScreen() {
 
             {/* Gradient Background for Top Section */}
             <LinearGradient
-                colors={[THEME.secondary, THEME.primary]}
+                colors={[theme.secondary, theme.primary]}
                 style={styles.headerGradient}
             />
 
@@ -220,8 +213,18 @@ export default function ProfileScreen() {
                             subtitle={isWorkshop ? "Gestionar servicios y citas" : "Dirección, horarios y contacto"}
                             onPress={() => router.push(isWorkshop ? '/workshop-admin' : '/client-info')}
                             isFirst={isWorkshop}
-                            isLast
+                            isLast={!isWorkshop}
                         />
+
+                        {isWorkshop && (
+                            <LinkRow
+                                icon="people"
+                                title="Administrar Personal"
+                                subtitle="Gestiona tu equipo de mecánicos"
+                                onPress={() => router.push('/manage-mechanics')}
+                                isLast
+                            />
+                        )}
                     </View>
 
                     {isWorkshop ? (
@@ -232,7 +235,7 @@ export default function ProfileScreen() {
                                 <View style={styles.servicesListCard}>
                                     {workshopServices.length === 0 ? (
                                         <View style={styles.emptyServices}>
-                                            <Ionicons name="construct-outline" size={32} color={THEME.border} />
+                                            <Ionicons name="construct-outline" size={32} color={theme.border} />
                                             <Text style={styles.emptyServicesText}>Aún no has agregado servicios.</Text>
                                         </View>
                                     ) : (
@@ -240,7 +243,7 @@ export default function ProfileScreen() {
                                             <View key={idx} style={[styles.serviceRow, idx === workshopServices.length - 1 && { borderBottomWidth: 0 }]}>
                                                 <View style={styles.serviceRowLeft}>
                                                     <View style={styles.serviceIconBg}>
-                                                        <Ionicons name="construct" size={16} color={THEME.primary} />
+                                                        <Ionicons name="construct" size={16} color={theme.primary} />
                                                     </View>
                                                     <Text style={styles.serviceNameText}>{s.service?.name}</Text>
                                                 </View>
@@ -254,7 +257,7 @@ export default function ProfileScreen() {
                                         onPress={() => router.push('/(tabs)/agenda')}
                                     >
                                         <Text style={styles.manageButtonText}>Gestionar Inventario</Text>
-                                        <Ionicons name="arrow-forward" size={16} color={THEME.primary} />
+                                        <Ionicons name="arrow-forward" size={16} color={theme.primary} />
                                     </TouchableOpacity>
                                 </View>
                             </View>
@@ -262,7 +265,7 @@ export default function ProfileScreen() {
                             <View style={styles.section}>
                                 <View style={styles.sectionHeaderRow}>
                                     <Text style={styles.sectionTitle}>Horario de Atención</Text>
-                                    {updatingHours && <ActivityIndicator size="small" color={THEME.primary} />}
+                                    {updatingHours && <ActivityIndicator size="small" color={theme.primary} />}
                                 </View>
 
                                 <View style={styles.hoursCard}>
@@ -276,11 +279,11 @@ export default function ProfileScreen() {
                                         }}
                                     >
                                         <View style={styles.hourInfo}>
-                                            <Ionicons name="time-outline" size={20} color={THEME.primary} />
+                                            <Ionicons name="time-outline" size={20} color={theme.primary} />
                                             <Text style={styles.hourLabel}>Apertura:</Text>
                                         </View>
                                         <Text style={styles.hourValue}>{workshopData?.opening_time?.slice(0, 5) || '09:00'}</Text>
-                                        <Ionicons name="pencil" size={14} color={THEME.textMuted} />
+                                        <Ionicons name="pencil" size={14} color={theme.textMuted} />
                                     </TouchableOpacity>
 
                                     <View style={styles.hourDivider} />
@@ -295,11 +298,11 @@ export default function ProfileScreen() {
                                         }}
                                     >
                                         <View style={styles.hourInfo}>
-                                            <Ionicons name="moon-outline" size={20} color={THEME.accent} />
+                                            <Ionicons name="moon-outline" size={20} color={theme.accent} />
                                             <Text style={styles.hourLabel}>Cierre:</Text>
                                         </View>
                                         <Text style={styles.hourValue}>{workshopData?.closing_time?.slice(0, 5) || '18:00'}</Text>
-                                        <Ionicons name="pencil" size={14} color={THEME.textMuted} />
+                                        <Ionicons name="pencil" size={14} color={theme.textMuted} />
                                     </TouchableOpacity>
                                 </View>
                             </View>
@@ -346,7 +349,7 @@ export default function ProfileScreen() {
                         style={styles.logoutButton}
                         onPress={handleLogout}
                     >
-                        <Ionicons name="log-out-outline" size={24} color={THEME.danger} />
+                        <Ionicons name="log-out-outline" size={24} color={theme.danger} />
                         <Text style={styles.logoutText}>Cerrar Sesión</Text>
                     </TouchableOpacity>
                 </View>
@@ -357,6 +360,8 @@ export default function ProfileScreen() {
 }
 
 function LinkRow({ icon, title, subtitle, onPress, isFirst, isLast }: { icon: any, title: string, subtitle: string, onPress?: () => void, isFirst?: boolean, isLast?: boolean }) {
+    const theme = useAppTheme();
+    const styles = getStyles(theme);
     return (
         <TouchableOpacity
             style={[
@@ -369,21 +374,21 @@ function LinkRow({ icon, title, subtitle, onPress, isFirst, isLast }: { icon: an
             activeOpacity={0.7}
         >
             <View style={styles.iconBox}>
-                <Ionicons name={icon} size={22} color={THEME.primary} />
+                <Ionicons name={icon} size={22} color={theme.primary} />
             </View>
             <View style={{ flex: 1, marginRight: 10 }}>
                 <Text style={styles.actionText}>{title}</Text>
                 <Text style={styles.actionSubtext}>{subtitle}</Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color={THEME.border} />
+            <Ionicons name="chevron-forward" size={20} color={theme.border} />
         </TouchableOpacity>
     );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: THEME.bg,
+        backgroundColor: theme.bg,
     },
     headerGradient: {
         height: 250,
@@ -410,34 +415,34 @@ const styles = StyleSheet.create({
     },
 
     profileCard: {
-        backgroundColor: THEME.card,
+        backgroundColor: theme.card,
         marginHorizontal: 24,
         borderRadius: 24,
         padding: 24,
         alignItems: 'center',
         elevation: 8,
-        shadowColor: THEME.secondary,
+        shadowColor: theme.secondary,
         shadowOffset: { width: 0, height: 10 },
         shadowOpacity: 0.15,
         shadowRadius: 20,
         marginBottom: 30,
         marginTop: 10,
         borderWidth: 1,
-        borderColor: THEME.border,
+        borderColor: theme.border,
     },
     avatarWrapper: {
         width: 110,
         height: 110,
         borderRadius: 55,
         borderWidth: 4,
-        borderColor: 'white',
+        borderColor: theme.card,
         elevation: 5,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 5 },
         shadowOpacity: 0.2,
         shadowRadius: 10,
         marginBottom: 16,
-        backgroundColor: '#E5E7EB',
+        backgroundColor: theme.bg,
         position: 'relative',
     },
     avatar: {
@@ -449,19 +454,19 @@ const styles = StyleSheet.create({
         position: 'absolute',
         bottom: 0,
         right: 0,
-        backgroundColor: THEME.primary,
+        backgroundColor: theme.primary,
         width: 32,
         height: 32,
         borderRadius: 16,
         justifyContent: 'center',
         alignItems: 'center',
         borderWidth: 3,
-        borderColor: 'white',
+        borderColor: theme.card,
     },
     userName: {
         fontSize: 22,
         fontWeight: '900',
-        color: THEME.secondary,
+        color: theme.secondary,
         textAlign: 'center',
     },
     roleBadge: {
@@ -473,7 +478,7 @@ const styles = StyleSheet.create({
     },
     userRole: {
         fontSize: 13,
-        color: THEME.primary,
+        color: theme.primary,
         fontWeight: 'bold',
         textAlign: 'center',
         letterSpacing: 1,
@@ -484,17 +489,17 @@ const styles = StyleSheet.create({
     sectionTitle: {
         fontSize: 16,
         fontWeight: '900',
-        color: THEME.secondary,
+        color: theme.secondary,
         textTransform: 'uppercase',
         letterSpacing: 1.5,
         marginBottom: 16,
         marginLeft: 8,
     },
     linksGroup: {
-        backgroundColor: THEME.card,
+        backgroundColor: theme.card,
         borderRadius: 24,
         borderWidth: 1,
-        borderColor: THEME.border,
+        borderColor: theme.border,
         marginBottom: 30,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 4 },
@@ -506,7 +511,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         padding: 20,
-        backgroundColor: THEME.card,
+        backgroundColor: theme.card,
     },
     linkRowFirst: {
         borderTopLeftRadius: 24,
@@ -518,13 +523,15 @@ const styles = StyleSheet.create({
     },
     linkRowBorder: {
         borderBottomWidth: 1,
-        borderBottomColor: THEME.border,
+        borderBottomColor: theme.border,
     },
     iconBox: {
         width: 40,
         height: 40,
         borderRadius: 10,
-        backgroundColor: '#F3F4F6',
+        backgroundColor: theme.bg,
+        borderWidth: 1,
+        borderColor: theme.border,
         justifyContent: 'center',
         alignItems: 'center',
         marginRight: 16,
@@ -536,9 +543,11 @@ const styles = StyleSheet.create({
         marginBottom: 8,
     },
     hoursCard: {
-        backgroundColor: 'white',
+        backgroundColor: theme.card,
         borderRadius: 16,
         padding: 4,
+        borderWidth: 1,
+        borderColor: theme.border,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.05,
@@ -559,22 +568,22 @@ const styles = StyleSheet.create({
     },
     hourLabel: {
         fontSize: 15,
-        color: THEME.text,
+        color: theme.text,
         fontWeight: '500',
     },
     hourValue: {
         fontSize: 18,
         fontWeight: 'bold',
-        color: THEME.secondary,
+        color: theme.secondary,
         marginRight: 12,
     },
     hourDivider: {
         height: 1,
-        backgroundColor: '#F3F4F6',
+        backgroundColor: theme.border,
         marginHorizontal: 16,
     },
     iosPickerContainer: {
-        backgroundColor: 'white',
+        backgroundColor: theme.card,
         marginTop: 8,
         borderRadius: 12,
         overflow: 'hidden',
@@ -583,21 +592,21 @@ const styles = StyleSheet.create({
         padding: 12,
         alignItems: 'flex-end',
         borderBottomWidth: 1,
-        borderBottomColor: '#F3F4F6',
+        borderBottomColor: theme.border,
     },
     iosPickerDoneText: {
-        color: THEME.primary,
+        color: theme.primary,
         fontWeight: 'bold',
         fontSize: 16,
     },
     actionText: {
-        color: THEME.text,
+        color: theme.text,
         fontSize: 16,
         fontWeight: 'bold',
         marginBottom: 2,
     },
     actionSubtext: {
-        color: THEME.textMuted,
+        color: theme.textMuted,
         fontSize: 12,
         lineHeight: 16,
     },
@@ -605,11 +614,11 @@ const styles = StyleSheet.create({
         marginBottom: 30,
     },
     servicesListCard: {
-        backgroundColor: THEME.card,
+        backgroundColor: theme.card,
         borderRadius: 24,
         padding: 24,
         borderWidth: 1,
-        borderColor: THEME.border,
+        borderColor: theme.border,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.03,
@@ -621,7 +630,7 @@ const styles = StyleSheet.create({
         paddingVertical: 20,
     },
     emptyServicesText: {
-        color: THEME.textMuted,
+        color: theme.textMuted,
         textAlign: 'center',
         marginTop: 10,
         fontWeight: '500',
@@ -632,7 +641,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         paddingVertical: 14,
         borderBottomWidth: 1,
-        borderBottomColor: THEME.border,
+        borderBottomColor: theme.border,
     },
     serviceRowLeft: {
         flexDirection: 'row',
@@ -650,13 +659,13 @@ const styles = StyleSheet.create({
     },
     serviceNameText: {
         fontSize: 15,
-        color: THEME.text,
+        color: theme.text,
         fontWeight: 'bold',
         flex: 1,
     },
     servicePriceText: {
         fontSize: 16,
-        color: THEME.secondary,
+        color: theme.secondary,
         fontWeight: '900',
     },
     manageButton: {
@@ -670,17 +679,17 @@ const styles = StyleSheet.create({
         borderRadius: 12,
     },
     manageButtonText: {
-        color: THEME.primary,
+        color: theme.primary,
         fontWeight: '900',
         fontSize: 14,
     },
     emptyCard: {
-        backgroundColor: THEME.card,
+        backgroundColor: theme.card,
         borderRadius: 24,
         padding: 30,
         alignItems: 'center',
         borderWidth: 1,
-        borderColor: THEME.border,
+        borderColor: theme.border,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.03,
@@ -697,14 +706,14 @@ const styles = StyleSheet.create({
         marginBottom: 16,
     },
     emptyCardTitle: {
-        color: THEME.secondary,
+        color: theme.secondary,
         fontSize: 18,
         fontWeight: '900',
         marginBottom: 8,
         textAlign: 'center',
     },
     emptyCardText: {
-        color: THEME.textMuted,
+        color: theme.textMuted,
         fontSize: 14,
         textAlign: 'center',
         marginBottom: 24,
@@ -712,12 +721,12 @@ const styles = StyleSheet.create({
     },
     searchButton: {
         flexDirection: 'row',
-        backgroundColor: THEME.primary,
+        backgroundColor: theme.primary,
         paddingVertical: 14,
         paddingHorizontal: 24,
         borderRadius: 16,
         alignItems: 'center',
-        shadowColor: THEME.primary,
+        shadowColor: theme.primary,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 8,
@@ -741,8 +750,9 @@ const styles = StyleSheet.create({
         gap: 10,
     },
     logoutText: {
-        color: THEME.danger,
+        color: theme.danger,
         fontWeight: 'bold',
         fontSize: 16,
     }
 });
+

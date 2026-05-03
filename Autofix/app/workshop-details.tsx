@@ -6,21 +6,9 @@ import { supabase } from '@/lib/supabase';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
 import { StatusBar } from 'expo-status-bar';
+import { useAppTheme } from '@/hooks/useAppTheme';
 
 const { width } = Dimensions.get('window');
-
-const THEME = {
-    primary: '#219ebc',
-    secondary: '#023047',
-    accent: '#fb8500',
-    bg: '#FFFFFF',
-    card: '#F9FAFB',
-    text: '#1F2937',
-    textMuted: '#6B7280',
-    border: '#E5E7EB',
-    white: '#FFFFFF',
-    star: '#FBBF24',
-};
 
 const WORKSHOP_PLACEHOLDER = 'https://images.unsplash.com/photo-1486006920555-c77dcf18193c?q=80&w=1200&auto=format&fit=crop';
 
@@ -56,6 +44,9 @@ type WorkshopReview = {
 };
 
 export default function WorkshopDetailsScreen() {
+    const theme = useAppTheme();
+    const styles = getStyles(theme);
+
     const router = useRouter();
     const { id } = useLocalSearchParams<{ id: string }>();
     const [loading, setLoading] = useState(true);
@@ -66,6 +57,7 @@ export default function WorkshopDetailsScreen() {
     const [reviewRating, setReviewRating] = useState(5);
     const [reviewComment, setReviewComment] = useState('');
     const [submittingReview, setSubmittingReview] = useState(false);
+    const [workshopPartners, setWorkshopPartners] = useState<any[]>([]);
 
     useEffect(() => {
         if (!id) return;
@@ -124,6 +116,7 @@ export default function WorkshopDetailsScreen() {
             }
 
             await loadWorkshopReviews(workshopId);
+            await loadWorkshopPartners(workshopId);
         } catch (e: any) {
             setError(e.message || 'No se pudo cargar la información.');
         } finally {
@@ -138,6 +131,27 @@ export default function WorkshopDetailsScreen() {
             .eq('workshop_id', workshopId)
             .order('created_at', { ascending: false });
         setReviews((data || []) as WorkshopReview[]);
+    }
+
+    async function loadWorkshopPartners(workshopId: string) {
+        try {
+            const { data, error } = await supabase
+                .from('workshop_partners')
+                .select('exclusive, benefit_description, partner:partners(*)')
+                .eq('workshop_id', workshopId);
+            
+            if (!error && data && data.length > 0) {
+                setWorkshopPartners(data);
+            } else {
+                // Mock data para previsualización
+                setWorkshopPartners([
+                    { partner: { name: 'GNP Seguros', logo_url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c3/GNP_Logo.svg/2560px-GNP_Logo.svg.png' }, benefit_description: 'Convenio de pago directo' },
+                    { partner: { name: 'Mobil 1', logo_url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d4/Mobil_1_logo.svg/2560px-Mobil_1_logo.svg.png' }, benefit_description: 'Lubricantes certificados' }
+                ]);
+            }
+        } catch (e) {
+            console.log("Error loading partners:", e);
+        }
     }
 
     async function getCurrentClientId() {
@@ -176,13 +190,13 @@ export default function WorkshopDetailsScreen() {
 
     if (loading) return (
         <View style={styles.centerContainer}>
-            <ActivityIndicator size="large" color={THEME.primary} />
+            <ActivityIndicator size="large" color={theme.primary} />
         </View>
     );
 
     if (error || !workshop) return (
         <View style={styles.centerContainer}>
-            <Ionicons name="alert-circle" size={48} color={THEME.accent} />
+            <Ionicons name="alert-circle" size={48} color={theme.accent} />
             <Text style={styles.errorText}>Vaya, algo salió mal.</Text>
             <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
                 <Text style={styles.backBtnText}>Regresar</Text>
@@ -211,7 +225,7 @@ export default function WorkshopDetailsScreen() {
                     <View style={styles.heroContent}>
                         <Text style={styles.workshopName}>{workshop.name}</Text>
                         <View style={styles.ratingRow}>
-                            <Ionicons name="star" size={16} color={THEME.star} />
+                            <Ionicons name="star" size={16} color="#FBBF24" />
                             <Text style={styles.ratingText}>{workshop.rating?.toFixed(1) || '0.0'}</Text>
                             <Text style={styles.reviewCount}>({workshop.total_reviews} reseñas)</Text>
                         </View>
@@ -222,7 +236,7 @@ export default function WorkshopDetailsScreen() {
                 <View style={styles.infoCard}>
                     <View style={styles.infoRow}>
                         <View style={styles.infoIconBox}>
-                            <Ionicons name="location" size={20} color={THEME.primary} />
+                            <Ionicons name="location" size={20} color={theme.primary} />
                         </View>
                         <View style={{ flex: 1 }}>
                             <Text style={styles.infoLabel}>UBICACIÓN</Text>
@@ -232,7 +246,7 @@ export default function WorkshopDetailsScreen() {
 
                     <View style={[styles.infoRow, { marginTop: 16 }]}>
                         <View style={styles.infoIconBox}>
-                            <Ionicons name="time" size={20} color={THEME.primary} />
+                            <Ionicons name="time" size={20} color={theme.primary} />
                         </View>
                         <View style={{ flex: 1 }}>
                             <Text style={styles.infoLabel}>HORARIO</Text>
@@ -253,7 +267,7 @@ export default function WorkshopDetailsScreen() {
                             style={styles.actionBtnSecondary}
                             onPress={() => router.push({ pathname: '/(tabs)/MapScreen', params: { workshopId: workshop.id } })}
                         >
-                            <Ionicons name="map" size={18} color={THEME.primary} />
+                            <Ionicons name="map" size={18} color={theme.primary} />
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -274,6 +288,30 @@ export default function WorkshopDetailsScreen() {
                     )}
                 </View>
 
+                {/* Sección de Alianzas */}
+                {workshopPartners.length > 0 && (
+                    <View style={styles.alliancesSection}>
+                        <Text style={styles.sectionTitle}>Alianzas y Convenios</Text>
+                        <View style={styles.alliancesGrid}>
+                            {workshopPartners.map((wp, idx) => (
+                                <View key={idx} style={styles.allianceCard}>
+                                    <View style={styles.allianceIconContainer}>
+                                        <Ionicons 
+                                            name={getPartnerIcon(wp.partner?.type)} 
+                                            size={20} 
+                                            color={theme.primary} 
+                                        />
+                                    </View>
+                                    <View style={styles.allianceInfo}>
+                                        <Text style={styles.allianceName}>{wp.partner?.name}</Text>
+                                        <Text style={styles.allianceBenefit}>{wp.benefit_description}</Text>
+                                    </View>
+                                </View>
+                            ))}
+                        </View>
+                    </View>
+                )}
+
                 {/* Servicios */}
                 <View style={styles.servicesSection}>
                     <Text style={styles.sectionTitle}>Catálogo de Servicios</Text>
@@ -287,7 +325,7 @@ export default function WorkshopDetailsScreen() {
                                         <Ionicons 
                                             name={getServiceIcon(service.name)} 
                                             size={24} 
-                                            color={THEME.primary} 
+                                            color={theme.primary} 
                                         />
                                     </View>
                                     <View style={{ flex: 1 }}>
@@ -314,7 +352,7 @@ export default function WorkshopDetailsScreen() {
                                     <Ionicons
                                         name={star <= reviewRating ? 'star' : 'star-outline'}
                                         size={30}
-                                        color={star <= reviewRating ? THEME.star : THEME.textMuted}
+                                        color={star <= reviewRating ? '#FBBF24' : theme.textMuted}
                                     />
                                 </TouchableOpacity>
                             ))}
@@ -322,7 +360,7 @@ export default function WorkshopDetailsScreen() {
                         <TextInput
                             style={styles.reviewInput}
                             placeholder="Comparte tu experiencia..."
-                            placeholderTextColor={THEME.textMuted}
+                            placeholderTextColor={theme.textMuted}
                             multiline
                             value={reviewComment}
                             onChangeText={setReviewComment}
@@ -348,7 +386,7 @@ export default function WorkshopDetailsScreen() {
                                     <Text style={styles.reviewDate}>{new Date(rev.created_at).toLocaleDateString()}</Text>
                                 </View>
                                 <View style={styles.reviewRatingBadge}>
-                                    <Ionicons name="star" size={12} color={THEME.star} />
+                                    <Ionicons name="star" size={12} color="#FBBF24" />
                                     <Text style={styles.reviewRatingText}>{rev.rating}</Text>
                                 </View>
                             </View>
@@ -381,11 +419,11 @@ function getAvatarColor(name?: string | null): string {
     return colors[index];
 }
 
-const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: THEME.bg },
+const getStyles = (theme: any) => StyleSheet.create({
+    container: { flex: 1, backgroundColor: theme.bg },
     centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 16, padding: 30 },
-    errorText: { fontSize: 18, fontWeight: 'bold', color: THEME.secondary },
-    backBtn: { backgroundColor: THEME.primary, paddingVertical: 10, paddingHorizontal: 20, borderRadius: 10 },
+    errorText: { fontSize: 18, fontWeight: 'bold', color: theme.secondary },
+    backBtn: { backgroundColor: theme.primary, paddingVertical: 10, paddingHorizontal: 20, borderRadius: 10 },
     backBtnText: { color: 'white', fontWeight: 'bold' },
     
     scrollContent: { flexGrow: 1, paddingBottom: 40 },
@@ -405,52 +443,90 @@ const styles = StyleSheet.create({
     reviewCount: { color: 'rgba(255,255,255,0.7)', fontSize: 14 },
 
     infoCard: {
-        backgroundColor: 'white', padding: 24, borderRadius: 24,
+        backgroundColor: theme.card, padding: 24, borderRadius: 24,
         marginHorizontal: 20, marginTop: -30, elevation: 10,
         shadowColor: 'black', shadowOffset: { width: 0, height: 10 },
         shadowOpacity: 0.1, shadowRadius: 20,
+        borderWidth: 1, borderColor: theme.border,
     },
     infoRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
     infoIconBox: { width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(33, 158, 188, 0.1)', justifyContent: 'center', alignItems: 'center' },
-    infoLabel: { fontSize: 10, fontWeight: '900', color: THEME.textMuted, letterSpacing: 1 },
-    infoValue: { fontSize: 14, fontWeight: 'bold', color: THEME.secondary },
+    infoLabel: { fontSize: 10, fontWeight: '900', color: theme.textMuted, letterSpacing: 1 },
+    infoValue: { fontSize: 14, fontWeight: 'bold', color: theme.text },
 
     actionButtonsRow: { flexDirection: 'row', gap: 12, marginTop: 24 },
-    actionBtnPrimary: { flex: 1, height: 50, backgroundColor: THEME.primary, borderRadius: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
+    actionBtnPrimary: { flex: 1, height: 50, backgroundColor: theme.primary, borderRadius: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
     actionBtnSecondary: { width: 50, height: 50, backgroundColor: 'rgba(33, 158, 188, 0.1)', borderRadius: 15, justifyContent: 'center', alignItems: 'center' },
     actionBtnText: { color: 'white', fontWeight: '900', fontSize: 14 },
 
     descriptionSection: { paddingHorizontal: 24, marginTop: 30 },
-    sectionTitle: { fontSize: 20, fontWeight: '900', color: THEME.secondary, marginBottom: 12 },
-    descriptionText: { fontSize: 14, color: THEME.textMuted, lineHeight: 22 },
+    sectionTitle: { fontSize: 20, fontWeight: '900', color: theme.text, marginBottom: 12 },
+    descriptionText: { fontSize: 14, color: theme.textMuted, lineHeight: 22 },
     tagCloud: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 16 },
-    tagBox: { paddingHorizontal: 12, paddingVertical: 6, backgroundColor: '#F3F4F6', borderRadius: 8 },
-    tagText: { fontSize: 12, fontWeight: 'bold', color: THEME.primary },
+    tagBox: { paddingHorizontal: 12, paddingVertical: 6, backgroundColor: theme.card, borderRadius: 8, borderWidth: 1, borderColor: theme.border },
+    tagText: { fontSize: 12, fontWeight: 'bold', color: theme.primary },
+
+    // Nuevos estilos para Alianzas en detalle
+    alliancesSection: { paddingHorizontal: 24, marginTop: 25 },
+    alliancesGrid: { gap: 10, marginTop: 12 },
+    allianceCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: theme.card,
+        borderRadius: 16,
+        padding: 14,
+        borderWidth: 1,
+        borderColor: theme.border,
+        gap: 12,
+    },
+    allianceIconContainer: {
+        width: 40,
+        height: 40,
+        borderRadius: 10,
+        backgroundColor: theme.bg,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: theme.border,
+    },
+    allianceInfo: { flex: 1 },
+    allianceName: { fontSize: 13, fontWeight: '800', color: theme.text },
+    allianceBenefit: { fontSize: 11, color: theme.textMuted, marginTop: 2 },
 
     servicesSection: { paddingHorizontal: 24, marginTop: 40 },
-    serviceCard: { backgroundColor: THEME.card, padding: 20, borderRadius: 20, marginBottom: 14, borderWidth: 1, borderColor: THEME.border },
+    serviceCard: { backgroundColor: theme.card, padding: 20, borderRadius: 20, marginBottom: 14, borderWidth: 1, borderColor: theme.border },
     serviceHeader: { flexDirection: 'row', gap: 16, alignItems: 'center', marginBottom: 10 },
-    serviceIconContainer: { width: 48, height: 48, borderRadius: 14, backgroundColor: 'white', justifyContent: 'center', alignItems: 'center' },
-    serviceName: { fontSize: 16, fontWeight: 'bold', color: THEME.secondary },
-    servicePrice: { fontSize: 14, fontWeight: '900', color: THEME.primary, marginTop: 2 },
-    serviceDesc: { fontSize: 13, color: THEME.textMuted, lineHeight: 18 },
+    serviceIconContainer: { width: 48, height: 48, borderRadius: 14, backgroundColor: theme.bg, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: theme.border },
+    serviceName: { fontSize: 16, fontWeight: 'bold', color: theme.text },
+    servicePrice: { fontSize: 14, fontWeight: '900', color: theme.primary, marginTop: 2 },
+    serviceDesc: { fontSize: 13, color: theme.textMuted, lineHeight: 18 },
 
     reviewsSection: { paddingHorizontal: 24, marginTop: 40 },
-    addReviewCard: { backgroundColor: '#F9FAFB', padding: 20, borderRadius: 24, marginBottom: 24, borderWidth: 1, borderColor: THEME.border },
-    addReviewTitle: { fontSize: 16, fontWeight: 'bold', color: THEME.secondary, textAlign: 'center' },
+    addReviewCard: { backgroundColor: theme.card, padding: 20, borderRadius: 24, marginBottom: 24, borderWidth: 1, borderColor: theme.border },
+    addReviewTitle: { fontSize: 16, fontWeight: 'bold', color: theme.text, textAlign: 'center' },
     starSelector: { flexDirection: 'row', justifyContent: 'center', gap: 10, marginVertical: 16 },
-    reviewInput: { backgroundColor: 'white', padding: 16, borderRadius: 15, height: 100, textAlignVertical: 'top', fontSize: 14, color: THEME.text, borderWidth: 1, borderColor: THEME.border },
-    submitReviewBtn: { backgroundColor: THEME.secondary, height: 50, borderRadius: 15, justifyContent: 'center', alignItems: 'center', marginTop: 16 },
+    reviewInput: { backgroundColor: theme.bg, padding: 16, borderRadius: 15, height: 100, textAlignVertical: 'top', fontSize: 14, color: theme.text, borderWidth: 1, borderColor: theme.border },
+    submitReviewBtn: { backgroundColor: theme.primary, height: 50, borderRadius: 15, justifyContent: 'center', alignItems: 'center', marginTop: 16 },
     submitReviewText: { color: 'white', fontWeight: 'bold' },
 
-    reviewCard: { paddingVertical: 20, borderBottomWidth: 1, borderBottomColor: THEME.border },
+    reviewCard: { paddingVertical: 20, borderBottomWidth: 1, borderBottomColor: theme.border },
     reviewHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
     avatarCircle: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
     avatarLetter: { color: 'white', fontWeight: 'bold', fontSize: 18 },
-    reviewerName: { fontSize: 14, fontWeight: 'bold', color: THEME.text },
-    reviewDate: { fontSize: 12, color: THEME.textMuted },
-    reviewRatingBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FEF3C7', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, gap: 4 },
-    reviewRatingText: { fontSize: 12, fontWeight: 'bold', color: '#92400E' },
-    reviewCommentText: { fontSize: 14, color: THEME.text, lineHeight: 22 },
-    emptyText: { color: THEME.textMuted, fontStyle: 'italic', textAlign: 'center', marginVertical: 20 }
+    reviewerName: { fontSize: 14, fontWeight: 'bold', color: theme.text },
+    reviewDate: { fontSize: 12, color: theme.textMuted },
+    reviewRatingBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: theme.bg, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, gap: 4, borderWidth: 1, borderColor: theme.border },
+    reviewRatingText: { fontSize: 12, fontWeight: 'bold', color: '#FBBF24' },
+    reviewCommentText: { fontSize: 14, color: theme.text, lineHeight: 22 },
+    emptyText: { color: theme.textMuted, fontStyle: 'italic', textAlign: 'center', marginVertical: 20 }
 });
+
+function getPartnerIcon(type: string): any {
+    switch (type) {
+        case 'insurance': return 'shield-checkmark-outline';
+        case 'spare_parts': return 'construct-outline';
+        case 'oil': return 'water-outline';
+        case 'tyres': return 'disc-outline';
+        default: return 'ribbon-outline';
+    }
+}

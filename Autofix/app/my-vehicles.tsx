@@ -8,19 +8,13 @@ import { getBrands, getModelsByBrand, VehicleBrand, VehicleModel } from '@/lib/v
 import { Picker } from '@react-native-picker/picker';
 import { LinearGradient } from 'expo-linear-gradient';
 
-const THEME = {
-    primary: '#219ebc',    
-    secondary: '#023047',  
-    accent: '#fb8500',     
-    bg: '#FFFFFF',
-    card: '#F9FAFB',
-    text: '#1F2937',
-    textMuted: '#6B7280',
-    border: '#E5E7EB',
-    danger: '#EF4444',
-};
+import { useAppTheme } from '@/hooks/useAppTheme';
+
 
 export default function MyVehiclesScreen() {
+    const theme = useAppTheme();
+    const styles = getStyles(theme);
+
     const [vehicles, setVehicles] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [modalVisible, setModalVisible] = useState(false);
@@ -146,21 +140,21 @@ export default function MyVehiclesScreen() {
             }} />
 
             <LinearGradient
-                colors={[THEME.secondary, THEME.primary]}
+                colors={[theme.secondary, theme.primary]}
                 style={styles.headerGradient}
             />
 
             {loading ? (
                 <View style={styles.center}>
-                    <ActivityIndicator color={THEME.primary} size="large" />
-                    <Text style={{ marginTop: 10, color: THEME.textMuted }}>Sincronizando garaje...</Text>
+                    <ActivityIndicator color={theme.primary} size="large" />
+                    <Text style={{ marginTop: 10, color: theme.textMuted }}>Sincronizando garaje...</Text>
                 </View>
             ) : (
                 <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
                     {vehicles.length === 0 ? (
                         <View style={styles.emptyState}>
                             <View style={styles.emptyIconBox}>
-                                <Ionicons name="car-sport" size={60} color={THEME.primary} />
+                                <Ionicons name="car-sport" size={60} color={theme.primary} />
                             </View>
                             <Text style={styles.emptyTitle}>Sin vehículos</Text>
                             <Text style={styles.emptyText}>Registra tu primer auto para comenzar a agendar citas.</Text>
@@ -169,7 +163,7 @@ export default function MyVehiclesScreen() {
                         vehicles.map((car) => (
                             <View key={car.id} style={styles.carCard}>
                                 <View style={styles.carIconBox}>
-                                    <Ionicons name="car-sport" size={28} color={THEME.primary} />
+                                    <Ionicons name="car-sport" size={28} color={theme.primary} />
                                 </View>
                                 <View style={styles.carInfo}>
                                     <Text style={styles.carTitle} numberOfLines={1}>{car.make} {car.model}</Text>
@@ -181,7 +175,7 @@ export default function MyVehiclesScreen() {
                                     style={styles.deleteButton}
                                     onPress={() => handleDeleteVehicle(car.id)}
                                 >
-                                    <Ionicons name="trash-outline" size={20} color={THEME.danger} />
+                                    <Ionicons name="trash-outline" size={20} color={theme.danger} />
                                 </TouchableOpacity>
                             </View>
                         ))
@@ -201,7 +195,7 @@ export default function MyVehiclesScreen() {
                         <View style={styles.modalHeader}>
                             <Text style={styles.modalTitle}>Nuevo Vehículo</Text>
                             <TouchableOpacity style={styles.closeBtn} onPress={() => { setModalVisible(false); resetForm(); }}>
-                                <Ionicons name="close" size={24} color={THEME.text} />
+                                <Ionicons name="close" size={24} color={theme.text} />
                             </TouchableOpacity>
                         </View>
 
@@ -248,7 +242,7 @@ export default function MyVehiclesScreen() {
                                 </View>
                             ) : (
                                 <View style={styles.disabledModelBox}>
-                                    <Ionicons name="car-sport-outline" size={30} color={THEME.border} />
+                                    <Ionicons name="car-sport-outline" size={30} color={theme.border} />
                                     <Text style={styles.disabledModelText}>Elige una marca para ver sus modelos</Text>
                                 </View>
                             )}
@@ -270,10 +264,10 @@ export default function MyVehiclesScreen() {
     );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: THEME.bg,
+        backgroundColor: theme.bg,
     },
     headerGradient: {
         height: 140,
@@ -296,11 +290,11 @@ const styles = StyleSheet.create({
     },
     emptyState: {
         alignItems: 'center',
-        backgroundColor: THEME.card,
+        backgroundColor: theme.card,
         borderRadius: 24,
         padding: 40,
         borderWidth: 1,
-        borderColor: THEME.border,
+        borderColor: theme.border,
         marginTop: 20,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 4 },
@@ -320,11 +314,11 @@ const styles = StyleSheet.create({
     emptyTitle: {
         fontSize: 20,
         fontWeight: '900',
-        color: THEME.secondary,
+        color: theme.secondary,
         marginBottom: 8,
     },
     emptyText: {
-        color: THEME.textMuted,
+        color: theme.textMuted,
         fontSize: 14,
         textAlign: 'center',
         lineHeight: 20,
@@ -332,12 +326,12 @@ const styles = StyleSheet.create({
     carCard: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: 'white',
+        backgroundColor: theme.card,
         padding: 20,
         borderRadius: 20,
         borderWidth: 1,
-        borderColor: THEME.border,
-        shadowColor: THEME.secondary,
+        borderColor: theme.border,
+        shadowColor: theme.secondary,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.05,
         shadowRadius: 10,
@@ -359,21 +353,21 @@ const styles = StyleSheet.create({
     carTitle: {
         fontSize: 18,
         fontWeight: '900',
-        color: THEME.text,
+        color: theme.text,
         marginBottom: 6,
     },
     plateBadge: {
-        backgroundColor: '#F3F4F6',
+        backgroundColor: theme.bg,
         paddingHorizontal: 10,
         paddingVertical: 4,
         borderRadius: 8,
         alignSelf: 'flex-start',
         borderWidth: 1,
-        borderColor: '#E5E7EB',
+        borderColor: theme.border,
     },
     carPlate: {
         fontSize: 12,
-        color: THEME.textMuted,
+        color: theme.textMuted,
         fontWeight: 'bold',
         textTransform: 'uppercase',
         letterSpacing: 1,
@@ -390,11 +384,11 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: THEME.primary,
+        backgroundColor: theme.primary,
         padding: 16,
         borderRadius: 16,
         marginTop: 20,
-        shadowColor: THEME.primary,
+        shadowColor: theme.primary,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 8,
@@ -413,7 +407,7 @@ const styles = StyleSheet.create({
         justifyContent: 'flex-end',
     },
     modalContent: {
-        backgroundColor: THEME.bg,
+        backgroundColor: theme.bg,
         borderTopLeftRadius: 30,
         borderTopRightRadius: 30,
         padding: 24,
@@ -434,22 +428,22 @@ const styles = StyleSheet.create({
     modalTitle: {
         fontSize: 22,
         fontWeight: '900',
-        color: THEME.secondary,
+        color: theme.secondary,
     },
     closeBtn: {
         width: 36,
         height: 36,
         borderRadius: 18,
-        backgroundColor: THEME.card,
+        backgroundColor: theme.card,
         justifyContent: 'center',
         alignItems: 'center',
         borderWidth: 1,
-        borderColor: THEME.border,
+        borderColor: theme.border,
     },
     label: {
         fontSize: 14,
         fontWeight: 'bold',
-        color: THEME.text,
+        color: theme.text,
         marginBottom: 8,
         marginLeft: 4,
     },
@@ -464,10 +458,10 @@ const styles = StyleSheet.create({
     chip: {
         paddingHorizontal: 20,
         paddingVertical: 12,
-        backgroundColor: THEME.card,
+        backgroundColor: theme.card,
         borderRadius: 20,
         borderWidth: 1,
-        borderColor: THEME.border,
+        borderColor: theme.border,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.05,
@@ -475,9 +469,9 @@ const styles = StyleSheet.create({
         elevation: 2,
     },
     activeChip: {
-        backgroundColor: THEME.primary,
-        borderColor: THEME.primary,
-        shadowColor: THEME.primary,
+        backgroundColor: theme.primary,
+        borderColor: theme.primary,
+        shadowColor: theme.primary,
         shadowOpacity: 0.3,
         shadowRadius: 8,
         elevation: 4,
@@ -485,7 +479,7 @@ const styles = StyleSheet.create({
     chipText: {
         fontSize: 15,
         fontWeight: 'bold',
-        color: THEME.textMuted,
+        color: theme.textMuted,
     },
     activeChipText: {
         color: 'white',
@@ -499,15 +493,15 @@ const styles = StyleSheet.create({
     modelChip: {
         paddingHorizontal: 16,
         paddingVertical: 10,
-        backgroundColor: THEME.card,
+        backgroundColor: theme.card,
         borderRadius: 14,
         borderWidth: 1,
-        borderColor: THEME.border,
+        borderColor: theme.border,
     },
     activeModelChip: {
-        backgroundColor: THEME.secondary,
-        borderColor: THEME.secondary,
-        shadowColor: THEME.secondary,
+        backgroundColor: theme.secondary,
+        borderColor: theme.secondary,
+        shadowColor: theme.secondary,
         shadowOpacity: 0.2,
         shadowRadius: 5,
         elevation: 3,
@@ -515,12 +509,12 @@ const styles = StyleSheet.create({
     modelChipText: {
         fontSize: 14,
         fontWeight: '600',
-        color: THEME.text,
+        color: theme.text,
     },
     disabledModelBox: {
-        backgroundColor: THEME.bg,
+        backgroundColor: theme.bg,
         borderWidth: 2,
-        borderColor: THEME.border,
+        borderColor: theme.border,
         borderStyle: 'dashed',
         borderRadius: 16,
         padding: 30,
@@ -530,7 +524,7 @@ const styles = StyleSheet.create({
         gap: 10,
     },
     disabledModelText: {
-        color: '#9CA3AF',
+        color: theme.textSoft || '#9CA3AF',
         fontSize: 14,
         fontWeight: '600',
     },
@@ -547,19 +541,19 @@ const styles = StyleSheet.create({
     },
     infoText: {
         flex: 1,
-        color: THEME.primary,
+        color: theme.primary,
         fontSize: 13,
         lineHeight: 18,
     },
     saveButton: {
         flexDirection: 'row',
-        backgroundColor: THEME.primary,
+        backgroundColor: theme.primary,
         padding: 18,
         borderRadius: 16,
         justifyContent: 'center',
         alignItems: 'center',
         marginTop: 30,
-        shadowColor: THEME.primary,
+        shadowColor: theme.primary,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 8,

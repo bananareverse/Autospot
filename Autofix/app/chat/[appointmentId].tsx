@@ -15,19 +15,12 @@ import {
     SafeAreaView,
     StatusBar
 } from 'react-native';
-
-const THEME = {
-    primary: '#219ebc',
-    secondary: '#023047',
-    bg: '#F8FAFC',
-    white: '#FFFFFF',
-    text: '#1E293B',
-    textMuted: '#64748B',
-    bubbleUser: '#219ebc',
-    bubbleOther: '#E2E8F0',
-};
+import { useAppTheme } from '@/hooks/useAppTheme';
 
 export default function ChatScreen() {
+    const theme = useAppTheme();
+    const styles = getStyles(theme);
+
     const { appointmentId } = useLocalSearchParams();
     const router = useRouter();
     const [messages, setMessages] = useState<any[]>([]);
@@ -125,14 +118,14 @@ export default function ChatScreen() {
             <Stack.Screen 
                 options={{ 
                     title: 'Chat de Cita',
-                    headerTitleStyle: { fontWeight: '900', color: THEME.secondary },
+                    headerTitleStyle: { fontWeight: '900', color: theme.secondary },
                     headerLeft: () => (
                         <TouchableOpacity onPress={() => router.back()} style={styles.headerBack}>
-                            <Ionicons name="arrow-back" size={24} color={THEME.secondary} />
+                            <Ionicons name="arrow-back" size={24} color={theme.secondary} />
                         </TouchableOpacity>
                     ),
                     headerShadowVisible: false,
-                    headerStyle: { backgroundColor: THEME.bg }
+                    headerStyle: { backgroundColor: theme.bg }
                 }} 
             />
 
@@ -142,7 +135,7 @@ export default function ChatScreen() {
                 keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
             >
                 {loading ? (
-                    <View style={styles.center}><ActivityIndicator size="small" color={THEME.primary} /></View>
+                    <View style={styles.center}><ActivityIndicator size="small" color={theme.primary} /></View>
                 ) : (
                     <FlatList
                         ref={flatListRef}
@@ -159,12 +152,13 @@ export default function ChatScreen() {
                         <TextInput
                             style={styles.input}
                             placeholder="Escribe un mensaje..."
+                            placeholderTextColor={theme.textMuted}
                             value={newMessage}
                             onChangeText={setNewMessage}
                             multiline
                         />
                         <TouchableOpacity 
-                            style={[styles.sendButton, !newMessage.trim() && { backgroundColor: THEME.textMuted }]} 
+                            style={[styles.sendButton, !newMessage.trim() && { backgroundColor: theme.textMuted }]} 
                             onPress={sendMessage}
                             disabled={!newMessage.trim()}
                         >
@@ -177,9 +171,9 @@ export default function ChatScreen() {
     );
 }
 
-const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: THEME.bg },
-    headerBack: { marginLeft: 10, width: 35, height: 35, borderRadius: 18, backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center', elevation: 2 },
+const getStyles = (theme: any) => StyleSheet.create({
+    container: { flex: 1, backgroundColor: theme.bg },
+    headerBack: { marginLeft: 10, width: 35, height: 35, borderRadius: 18, backgroundColor: theme.card, justifyContent: 'center', alignItems: 'center', elevation: 2, borderWidth: 1, borderColor: theme.border },
     center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     listContent: { paddingHorizontal: 16, paddingVertical: 10 },
     
@@ -188,39 +182,41 @@ const styles = StyleSheet.create({
     rowOther: { justifyContent: 'flex-start' },
     
     bubble: { maxWidth: '80%', padding: 12, borderRadius: 20 },
-    bubbleMine: { backgroundColor: THEME.bubbleUser, borderBottomRightRadius: 4 },
-    bubbleOther: { backgroundColor: THEME.bubbleOther, borderBottomLeftRadius: 4 },
+    bubbleMine: { backgroundColor: theme.primary, borderBottomRightRadius: 4 },
+    bubbleOther: { backgroundColor: theme.card, borderBottomLeftRadius: 4, borderWidth: 1, borderColor: theme.border },
     
     messageText: { fontSize: 15, lineHeight: 20 },
     textMine: { color: 'white' },
-    textOther: { color: THEME.text },
+    textOther: { color: theme.text },
     
     bubbleFooter: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 4 },
     timeText: { fontSize: 10 },
     timeMine: { color: 'rgba(255,255,255,0.7)' },
-    timeOther: { color: THEME.textMuted },
+    timeOther: { color: theme.textMuted },
 
     inputArea: { 
         padding: 12, 
-        backgroundColor: THEME.white, 
+        backgroundColor: theme.bg, 
         borderTopWidth: 1, 
-        borderTopColor: '#F1F5F9',
+        borderTopColor: theme.border,
         paddingBottom: Platform.OS === 'ios' ? 5 : 12 
     },
     inputWrapper: {
         flexDirection: 'row',
         alignItems: 'flex-end',
-        backgroundColor: '#F1F5F9',
+        backgroundColor: theme.card,
         borderRadius: 25,
         paddingHorizontal: 12,
         paddingVertical: 6,
-        gap: 8
+        gap: 8,
+        borderWidth: 1,
+        borderColor: theme.border
     },
     input: { 
         flex: 1, 
         fontSize: 15, 
         maxHeight: 120,
-        color: THEME.text,
+        color: theme.text,
         paddingHorizontal: 8,
         paddingTop: 8,
         paddingBottom: 8
@@ -229,7 +225,7 @@ const styles = StyleSheet.create({
         width: 36, 
         height: 36, 
         borderRadius: 18, 
-        backgroundColor: THEME.primary, 
+        backgroundColor: theme.primary, 
         justifyContent: 'center', 
         alignItems: 'center',
         marginBottom: 2

@@ -8,21 +8,14 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Dimensions, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, ToastAndroid, TouchableOpacity, View } from 'react-native';
+import { useAppTheme } from '@/hooks/useAppTheme';
 
 const { width } = Dimensions.get('window');
 
-const THEME = {
-    primary: '#219ebc',    // Cian Premium
-    secondary: '#023047',  // Marino Profundo
-    accent: '#fb8500',     // Naranja (Acento)
-    bg: '#FFFFFF',
-    card: '#F9FAFB',
-    text: '#1F2937',
-    textMuted: '#6B7280',
-    border: '#E5E7EB',
-};
-
 export default function ScheduleAppointmentScreen() {
+    const theme = useAppTheme();
+    const styles = getStyles(theme);
+
     const router = useRouter();
     const { workshopId } = useLocalSearchParams<{ workshopId?: string }>();
     const initialWorkshopId = useMemo(() => {
@@ -38,11 +31,13 @@ export default function ScheduleAppointmentScreen() {
     const [vehicles, setVehicles] = useState<any[]>([]);
     const [workshops, setWorkshops] = useState<any[]>([]);
     const [services, setServices] = useState<any[]>([]);
+    const [mechanics, setMechanics] = useState<any[]>([]);
     
     // Selection State
     const [selectedVehicleId, setSelectedVehicleId] = useState('');
     const [selectedWorkshopId, setSelectedWorkshopId] = useState<string>(initialWorkshopId);
     const [selectedServiceId, setSelectedServiceId] = useState('');
+    const [selectedMechanicId, setSelectedMechanicId] = useState<string>('');
     const [date, setDate] = useState(new Date());
     const [showPicker, setShowPicker] = useState(false);
     const [showDatePicker, setShowDatePicker] = useState(Platform.OS === 'ios');
@@ -109,6 +104,23 @@ export default function ScheduleAppointmentScreen() {
             }
         }
         loadServices();
+    }, [selectedWorkshopId]);
+
+    useEffect(() => {
+        async function loadMechanics() {
+            if (!selectedWorkshopId) return;
+            try {
+                const { data } = await supabase.from('mechanics')
+                    .select('id, name')
+                    .eq('workshop_id', selectedWorkshopId)
+                    .order('name', { ascending: true });
+                setMechanics(data || []);
+                setSelectedMechanicId('');
+            } catch (e) {
+                console.error(e);
+            }
+        }
+        loadMechanics();
     }, [selectedWorkshopId]);
 
     // Actualizar horarios cuando cambia el taller seleccionado
@@ -193,6 +205,7 @@ export default function ScheduleAppointmentScreen() {
                 vehicle_id: selectedVehicleId,
                 workshop_id: selectedWorkshopId,
                 service_id: selectedServiceId || null,
+                mechanic_id: selectedMechanicId || null,
                 scheduled_at: date,
                 notes: notes
             });
@@ -219,7 +232,7 @@ export default function ScheduleAppointmentScreen() {
     if (loading) {
         return (
             <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color={THEME.primary} />
+                <ActivityIndicator size="large" color={theme.primary} />
                 <Text style={styles.loadingText}>Preparando agenda...</Text>
             </View>
         );
@@ -233,7 +246,7 @@ export default function ScheduleAppointmentScreen() {
             }} />
 
             <LinearGradient
-                colors={[THEME.secondary, THEME.primary]}
+                colors={[theme.secondary, theme.primary]}
                 style={styles.headerGradient}
             />
 
@@ -250,7 +263,7 @@ export default function ScheduleAppointmentScreen() {
                     {/* SECCIÓN 1: VEHÍCULO */}
                     <View style={styles.section}>
                         <View style={styles.sectionHeader}>
-                            <Ionicons name="car-sport" size={24} color={THEME.primary} />
+                            <Ionicons name="car-sport" size={24} color={theme.primary} />
                             <Text style={styles.sectionTitle}>TU VEHÍCULO</Text>
                         </View>
                         
@@ -262,7 +275,7 @@ export default function ScheduleAppointmentScreen() {
                                         style={[styles.vehicleCard, selectedVehicleId === v.id && styles.activeCard]}
                                         onPress={() => setSelectedVehicleId(v.id)}
                                     >
-                                        <Ionicons name="car" size={32} color={selectedVehicleId === v.id ? 'white' : THEME.primary} />
+                                        <Ionicons name="car" size={32} color={selectedVehicleId === v.id ? 'white' : theme.primary} />
                                         <Text style={[styles.cardTitle, selectedVehicleId === v.id && styles.whiteText]}>{v.model}</Text>
                                         <Text style={[styles.cardSubtitle, selectedVehicleId === v.id && styles.whiteTextMuted]}>{v.license_plate}</Text>
                                     </TouchableOpacity>
@@ -271,7 +284,7 @@ export default function ScheduleAppointmentScreen() {
                                     style={styles.addCard}
                                     onPress={() => router.push('/my-vehicles')}
                                 >
-                                    <Ionicons name="add-circle" size={32} color={THEME.textMuted} />
+                                    <Ionicons name="add-circle" size={32} color={theme.textMuted} />
                                     <Text style={styles.addCardText}>Añadir</Text>
                                 </TouchableOpacity>
                             </ScrollView>
@@ -285,7 +298,7 @@ export default function ScheduleAppointmentScreen() {
                     {/* SECCIÓN 2: TALLER */}
                     <View style={styles.section}>
                         <View style={styles.sectionHeader}>
-                            <Ionicons name="business" size={24} color={THEME.primary} />
+                            <Ionicons name="business" size={24} color={theme.primary} />
                             <Text style={styles.sectionTitle}>SELECCIONA EL TALLER</Text>
                         </View>
                         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
@@ -314,11 +327,11 @@ export default function ScheduleAppointmentScreen() {
                     {/* SECCIÓN 3: SERVICIOS */}
                     <View style={styles.section}>
                         <View style={styles.sectionHeader}>
-                            <Ionicons name="construct" size={24} color={THEME.primary} />
+                            <Ionicons name="construct" size={24} color={theme.primary} />
                             <Text style={styles.sectionTitle}>SERVICIO</Text>
                         </View>
                         {loadingServices ? (
-                            <ActivityIndicator color={THEME.primary} />
+                            <ActivityIndicator color={theme.primary} />
                         ) : (
                             <View style={styles.chipGrid}>
                                 {services.map(s => (
@@ -335,10 +348,58 @@ export default function ScheduleAppointmentScreen() {
                         )}
                     </View>
 
+                    {/* SECCIÓN 3.5: MECÁNICO (OPCIONAL) */}
+                    {mechanics.length > 0 && (
+                        <View style={styles.section}>
+                            <View style={styles.sectionHeader}>
+                                <Ionicons name="people" size={24} color={theme.primary} />
+                                <Text style={styles.sectionTitle}>MECÁNICO (OPCIONAL)</Text>
+                            </View>
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll}>
+                                <TouchableOpacity 
+                                    style={[styles.workshopCard, !selectedMechanicId && styles.activeCard]}
+                                    onPress={() => setSelectedMechanicId('')}
+                                >
+                                    <View style={styles.workshopCardHeader}>
+                                        <Text style={[styles.workshopCardName, !selectedMechanicId && styles.whiteText]}>
+                                            Cualquiera
+                                        </Text>
+                                        {!selectedMechanicId && (
+                                            <Ionicons name="checkmark-circle" size={18} color="white" />
+                                        )}
+                                    </View>
+                                    <Text style={[styles.workshopCardAddress, !selectedMechanicId && styles.whiteTextMuted]}>
+                                        El taller asignará uno
+                                    </Text>
+                                </TouchableOpacity>
+
+                                {mechanics.map(m => (
+                                    <TouchableOpacity 
+                                        key={m.id}
+                                        style={[styles.workshopCard, selectedMechanicId === m.id && styles.activeCard]}
+                                        onPress={() => setSelectedMechanicId(m.id)}
+                                    >
+                                        <View style={styles.workshopCardHeader}>
+                                            <Text style={[styles.workshopCardName, selectedMechanicId === m.id && styles.whiteText]}>
+                                                {m.name}
+                                            </Text>
+                                            {selectedMechanicId === m.id && (
+                                                <Ionicons name="checkmark-circle" size={18} color="white" />
+                                            )}
+                                        </View>
+                                        <Text style={[styles.workshopCardAddress, selectedMechanicId === m.id && styles.whiteTextMuted]}>
+                                            Mecánico del taller
+                                        </Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </ScrollView>
+                        </View>
+                    )}
+
                     {/* SECCIÓN 4: FECHA Y HORA */}
                     <View style={styles.section}>
                         <View style={styles.sectionHeader}>
-                            <Ionicons name="time" size={24} color={THEME.primary} />
+                            <Ionicons name="time" size={24} color={theme.primary} />
                             <Text style={styles.sectionTitle}>FECHA Y HORA</Text>
                         </View>
                         
@@ -358,7 +419,7 @@ export default function ScheduleAppointmentScreen() {
                                     }}
                                 >
                                     <Text style={styles.dateText}>{date.toLocaleString([], { dateStyle: 'long', timeStyle: 'short' })}</Text>
-                                    <Ionicons name="calendar" size={20} color={THEME.primary} />
+                                    <Ionicons name="calendar" size={20} color={theme.primary} />
                                 </TouchableOpacity>
                             )}
                             
@@ -369,8 +430,8 @@ export default function ScheduleAppointmentScreen() {
                                     display="inline"
                                     onChange={handleDateChange}
                                     minimumDate={new Date()}
-                                    themeVariant="light"
-                                    accentColor={THEME.primary}
+                                    themeVariant={theme.bg === '#F9FAFB' ? 'light' : 'dark'}
+                                    accentColor={theme.primary}
                                 />
                             )}
                         </View>
@@ -379,12 +440,13 @@ export default function ScheduleAppointmentScreen() {
                     {/* SECCIÓN 5: NOTAS */}
                     <View style={styles.section}>
                         <View style={styles.sectionHeader}>
-                            <Ionicons name="chatbubble-ellipses" size={24} color={THEME.primary} />
+                            <Ionicons name="chatbubble-ellipses" size={24} color={theme.primary} />
                             <Text style={styles.sectionTitle}>NOTAS (OPCIONAL)</Text>
                         </View>
                         <TextInput
                             style={styles.textArea}
                             placeholder="Describe el problema o detalles adicionales..."
+                            placeholderTextColor={theme.textMuted}
                             value={notes}
                             onChangeText={setNotes}
                             multiline
@@ -413,10 +475,10 @@ export default function ScheduleAppointmentScreen() {
     );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any) => StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: THEME.bg,
+        backgroundColor: theme.bg,
     },
     headerGradient: {
         height: 120,
@@ -443,11 +505,11 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: THEME.bg,
+        backgroundColor: theme.bg,
     },
     loadingText: {
         marginTop: 10,
-        color: THEME.textMuted,
+        color: theme.textMuted,
         fontWeight: '600',
     },
     section: {
@@ -462,7 +524,7 @@ const styles = StyleSheet.create({
     sectionTitle: {
         fontSize: 13,
         fontWeight: '900',
-        color: THEME.secondary,
+        color: theme.text,
         letterSpacing: 2,
     },
     horizontalScroll: {
@@ -472,12 +534,12 @@ const styles = StyleSheet.create({
     // Workshop Cards
     workshopCard: {
         width: 180,
-        backgroundColor: THEME.card,
+        backgroundColor: theme.card,
         padding: 15,
         borderRadius: 20,
         marginRight: 15,
         borderWidth: 1,
-        borderColor: THEME.border,
+        borderColor: theme.border,
     },
     workshopCardHeader: {
         flexDirection: 'row',
@@ -488,31 +550,31 @@ const styles = StyleSheet.create({
     workshopCardName: {
         fontSize: 15,
         fontWeight: 'bold',
-        color: THEME.text,
+        color: theme.text,
         flex: 1,
     },
     workshopCardAddress: {
         fontSize: 11,
-        color: THEME.textMuted,
+        color: theme.textMuted,
         lineHeight: 14,
     },
     // Vehicle Cards
     vehicleCard: {
         width: 140,
-        backgroundColor: THEME.card,
+        backgroundColor: theme.card,
         padding: 15,
         borderRadius: 20,
         marginRight: 15,
         borderWidth: 1,
-        borderColor: THEME.border,
+        borderColor: theme.border,
         alignItems: 'center',
     },
     addCard: {
         width: 100,
-        backgroundColor: THEME.bg,
+        backgroundColor: theme.bg,
         borderStyle: 'dashed',
         borderWidth: 2,
-        borderColor: THEME.border,
+        borderColor: theme.border,
         padding: 15,
         borderRadius: 20,
         justifyContent: 'center',
@@ -520,19 +582,19 @@ const styles = StyleSheet.create({
     },
     addCardText: {
         fontSize: 12,
-        color: THEME.textMuted,
+        color: theme.textMuted,
         marginTop: 5,
         fontWeight: 'bold',
     },
     // Chips
     workshopChip: {
-        backgroundColor: THEME.card,
+        backgroundColor: theme.card,
         paddingHorizontal: 20,
         paddingVertical: 12,
         borderRadius: 25,
         marginRight: 10,
         borderWidth: 1,
-        borderColor: THEME.border,
+        borderColor: theme.border,
     },
     chipGrid: {
         flexDirection: 'row',
@@ -540,49 +602,49 @@ const styles = StyleSheet.create({
         gap: 10,
     },
     serviceChip: {
-        backgroundColor: THEME.card,
+        backgroundColor: theme.card,
         paddingHorizontal: 15,
         paddingVertical: 10,
         borderRadius: 15,
         borderWidth: 1,
-        borderColor: THEME.border,
+        borderColor: theme.border,
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
         minWidth: '45%',
     },
     activeCard: {
-        backgroundColor: THEME.primary,
-        borderColor: THEME.primary,
+        backgroundColor: theme.primary,
+        borderColor: theme.primary,
         elevation: 8,
-        shadowColor: THEME.primary,
+        shadowColor: theme.primary,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 8,
     },
     activeChip: {
-        backgroundColor: THEME.primary,
-        borderColor: THEME.primary,
+        backgroundColor: theme.primary,
+        borderColor: theme.primary,
     },
     // Texts
     cardTitle: {
         fontSize: 15,
         fontWeight: 'bold',
-        color: THEME.text,
+        color: theme.text,
         marginTop: 8,
     },
     cardSubtitle: {
         fontSize: 11,
-        color: THEME.textMuted,
+        color: theme.textMuted,
     },
     chipText: {
         fontSize: 14,
         fontWeight: '600',
-        color: THEME.text,
+        color: theme.text,
     },
     chipPrice: {
         fontSize: 12,
-        color: THEME.primary,
+        color: theme.primary,
         fontWeight: 'bold',
         marginLeft: 8,
     },
@@ -591,11 +653,11 @@ const styles = StyleSheet.create({
     
     // Date/Time
     dateContainer: {
-        backgroundColor: THEME.card,
+        backgroundColor: theme.card,
         borderRadius: 20,
         padding: 10,
         borderWidth: 1,
-        borderColor: THEME.border,
+        borderColor: theme.border,
     },
     androidDateBtn: {
         flexDirection: 'row',
@@ -606,22 +668,22 @@ const styles = StyleSheet.create({
     dateText: {
         fontSize: 16,
         fontWeight: '600',
-        color: THEME.text,
+        color: theme.text,
     },
     // Form
     textArea: {
-        backgroundColor: THEME.card,
+        backgroundColor: theme.card,
         borderRadius: 20,
         padding: 15,
         borderWidth: 1,
-        borderColor: THEME.border,
-        color: THEME.text,
+        borderColor: theme.border,
+        color: theme.text,
         fontSize: 15,
         textAlignVertical: 'top',
         minHeight: 100,
     },
     mainButton: {
-        backgroundColor: THEME.primary,
+        backgroundColor: theme.primary,
         height: 60,
         borderRadius: 20,
         flexDirection: 'row',
@@ -630,7 +692,7 @@ const styles = StyleSheet.create({
         gap: 12,
         marginTop: 20,
         elevation: 5,
-        shadowColor: THEME.primary,
+        shadowColor: theme.primary,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 10,
@@ -648,12 +710,12 @@ const styles = StyleSheet.create({
         padding: 20,
         borderStyle: 'dashed',
         borderWidth: 2,
-        borderColor: THEME.border,
+        borderColor: theme.border,
         borderRadius: 20,
         alignItems: 'center',
     },
     emptyButtonText: {
-        color: THEME.primary,
+        color: theme.primary,
         fontWeight: 'bold',
     }
 });
